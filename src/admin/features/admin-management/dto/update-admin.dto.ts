@@ -17,6 +17,10 @@ export class UpdateAdminDto {
   phoneNumber?: string;
 
   @IsOptional()
+  @IsString() // Add this field to allow role updates
+  roleType?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(100)
   department?: string;

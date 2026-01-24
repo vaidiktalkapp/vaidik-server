@@ -19,6 +19,9 @@ import { RatingReviewService } from './services/rating-review.service';
 import { AstrologersController } from './controllers/astrologers.controller';
 import { AstrologerProfileController } from './controllers/astrologer-profile.controller';
 
+import { AstrologerBlockingController } from './controllers/astrologer-blocking.controller'; // ✅ ADD
+import { AstrologerBlockingService } from './services/astrologer-blocking.service'; // ✅ ADD
+
 // ✅ Import UsersModule for UserBlockingService
 import { UsersModule } from '../users/users.module';
 import { PaymentsModule } from '../payments/payments.module';
@@ -45,6 +48,7 @@ import { Order, OrderSchema } from 'src/orders/schemas/orders.schema';
   controllers: [
     AstrologersController,
     AstrologerProfileController,
+    AstrologerBlockingController, // ✅ ADD
   ],
   providers: [
     AstrologersService,
@@ -54,6 +58,7 @@ import { Order, OrderSchema } from 'src/orders/schemas/orders.schema';
     EarningsService,
     PenaltyService,
     RatingReviewService,
+    AstrologerBlockingService, // ✅ ADD
   ],
   exports: [
     AstrologersService,
@@ -63,6 +68,7 @@ import { Order, OrderSchema } from 'src/orders/schemas/orders.schema';
     PenaltyService,
     MongooseModule,
     RatingReviewService,
+    AstrologerBlockingService, // ✅ ADD
   ],
 })
 export class AstrologersModule {}

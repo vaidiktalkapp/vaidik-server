@@ -313,8 +313,14 @@ ratings: {
     }[];
   };
 
-  @Prop({ default: 'active', enum: ['active', 'suspended', 'inactive'] })
+  @Prop({ default: 'active', enum: ['active', 'suspended', 'inactive', 'deleted'] })
   accountStatus: string;
+
+  @Prop({ required: false })
+  permanentDeletionAt?: Date;
+
+  @Prop({ required: false })
+  deletionReason?: string;
 
   @Prop({ default: true })
   isChatEnabled: boolean;
@@ -333,6 +339,21 @@ ratings: {
 
   @Prop()
   suspendedBy?: Types.ObjectId;
+
+  @Prop({
+    type: [{
+      userId: { type: Types.ObjectId, ref: 'User' },
+      reason: { type: String },
+      blockedAt: { type: Date, default: Date.now },
+    }],
+    default: [],
+    select: false, // Don't return this by default in public queries
+  })
+  blockedUsers: {
+    userId: Types.ObjectId;
+    reason: string;
+    blockedAt: Date;
+  }[];
 
 @Prop({
     type: [

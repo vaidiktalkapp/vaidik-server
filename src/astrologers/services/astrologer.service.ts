@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Astrologer, AstrologerDocument } from '../schemas/astrologer.schema';
 
 @Injectable()
@@ -427,5 +428,69 @@ export class AstrologerService {
     if (!steps.pricing) missing.push('Pricing Setup');
     if (!steps.availability) missing.push('Availability & Working Hours');
     return missing;
+  }
+
+  // ✅ NEW: Delete Account Request
+  async deleteAccount(astrologerId: string, reason?: string): Promise<any> {
+    const astrologer = await this.astrologerModel.findById(astrologerId);
+
+    if (!astrologer) {
+      throw new NotFoundException('Astrologer not found');
+    }
+
+    // Optional: Check for pending withdrawals or active live streams
+    if (astrologer.earnings.pendingWithdrawal > 0) {
+      throw new BadRequestException('Cannot delete account while you have pending withdrawals.');
+    }
+
+    const deletionDate = new Date();
+    deletionDate.setDate(deletionDate.getDate() + 7);
+
+    // Update status
+    astrologer.accountStatus = 'deleted';
+    astrologer.permanentDeletionAt = deletionDate;
+    astrologer.deletionReason = reason;
+    
+    // Immediately go offline
+    astrologer.availability.isOnline = false;
+    astrologer.availability.isAvailable = false;
+    astrologer.availability.isLive = false;
+    astrologer.devices = []; // Clear devices
+
+    await astrologer.save();
+
+    return {
+      success: true,
+      message: 'Account scheduled for deletion. It will be permanently removed in 7 days.',
+      data: {
+        scheduledDate: deletionDate
+      }
+    };
+  }
+
+  // ✅ NEW: CRON Job for Astrologer cleanup
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleScheduledDeletions() {
+    this.logger.log('Starting scheduled astrologer account deletion cleanup...');
+    
+    const now = new Date();
+    
+    const accountsToDelete = await this.astrologerModel.find({
+      accountStatus: 'deleted',
+      permanentDeletionAt: { $lte: now }
+    }).select('_id');
+
+    let deletedCount = 0;
+
+    for (const acc of accountsToDelete) {
+      try {
+        await this.astrologerModel.deleteOne({ _id: acc._id });
+        deletedCount++;
+      } catch (error) {
+        this.logger.error(`Failed to delete astrologer ${acc._id}: ${error.message}`);
+      }
+    }
+
+    this.logger.log(`Cleanup complete. Permanently deleted ${deletedCount} astrologer accounts.`);
   }
 }

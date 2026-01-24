@@ -12,6 +12,8 @@ import { EarningsService } from '../../astrologers/services/earnings.service';
 import { User, UserDocument } from '../../users/schemas/user.schema';
 import { PenaltyService } from '../../astrologers/services/penalty.service';
 import { CallGateway } from '../gateways/calls.gateway';
+import { AstrologerBlockingService } from '../../astrologers/services/astrologer-blocking.service';
+import { UserBlockingService } from 'src/users/services/user-blocking.service';
 
 @Injectable()
 export class CallSessionService {
@@ -32,6 +34,8 @@ export class CallSessionService {
     private chatMessageService: ChatMessageService,
     private earningsService: EarningsService,
     private penaltyService: PenaltyService,
+    private blockingService: AstrologerBlockingService,
+    private userBlockingService: UserBlockingService,
   ) {}
 
   private generateSessionId(): string {
@@ -54,6 +58,14 @@ export class CallSessionService {
     callType: 'audio' | 'video';
     ratePerMinute: number;
   }): Promise<any> {
+    const isBlocked = await this.blockingService.isUserBlocked(sessionData.astrologerId, sessionData.userId);
+    if (isBlocked) {
+      throw new BadRequestException('You have been blocked by this astrologer.');
+    }
+    const isAstrologerBlocked = await this.userBlockingService.isAstrologerBlocked(this.toObjectId(sessionData.userId), sessionData.astrologerId);
+    if (isAstrologerBlocked) {
+    throw new BadRequestException('You have blocked this astrologer. Unblock them to continue.');
+    }
     const estimatedCost = sessionData.ratePerMinute * 5;
     const hasBalance = await this.walletService.checkBalance(
       sessionData.userId,
@@ -241,10 +253,20 @@ export class CallSessionService {
   // ===== REJECT CALL =====
   async rejectCall(sessionId: string, astrologerId: string, reason: string): Promise<any> {
     const session = await this.sessionModel.findOne({ sessionId });
-    if (!session) throw new NotFoundException('Session not found');
+    
+    if (!session) {
+        // If not found, imply it's already gone
+        throw new NotFoundException('Session not found');
+    }
+
+    // ✅ FIX: Be specific about state. If cancelled, return 'already cancelled' logic instead of erroring 
+    if (session.status === 'cancelled' || session.status === 'rejected') {
+        // Return success so controller doesn't throw 400
+        return { success: true, message: 'Call already cancelled' };
+    }
 
     if (session.status !== 'initiated' && session.status !== 'waiting') {
-      throw new BadRequestException('Call cannot be rejected at this stage');
+      throw new BadRequestException(`Call cannot be rejected at this stage (${session.status})`);
     }
 
     if (this.sessionTimers.has(sessionId)) {
@@ -258,13 +280,14 @@ export class CallSessionService {
     session.endTime = new Date();
     await session.save();
 
+    // Apply Penalty Logic
     try {
       await this.penaltyService.applyPenalty({
         astrologerId,
         type: 'missed_appointment',
         amount: 50,
         reason: 'Call request rejected',
-        description: `Rejected ${session.callType} call request from user`,
+        description: `Rejected ${session.callType} call request`,
         orderId: session.orderId,
         userId: session.userId.toString(),
         appliedBy: 'system',
@@ -275,22 +298,19 @@ export class CallSessionService {
 
     await this.ordersService.cancelOrder(session.orderId, session.userId.toString(), reason, 'astrologer');
 
+    // Send Push Notification
     this.notificationService.sendNotification({
       recipientId: session.userId.toString(),
       recipientModel: 'User',
       type: 'request_rejected',
       title: 'Call request rejected',
-      message: 'Astrologer rejected your call request. No amount has been charged.',
+      message: 'Astrologer rejected your call request.',
       data: {
         type: 'request_rejected',
         mode: 'call',
-        callType: session.callType,
         sessionId: session.sessionId,
-        orderId: session.orderId,
-        astrologerId,
-        step: 'astrologer_rejected',
       },
-      priority: 'medium',
+      priority: 'high',
     }).catch(err => this.logger.error(`Call rejected notification error: ${err.message}`));
 
     return { success: true, message: 'Call rejected' };

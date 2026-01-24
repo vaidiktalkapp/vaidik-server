@@ -9,6 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { StreamSessionService } from '../services/stream-session.service';
+import { AstrologerBlockingService } from '../../astrologers/services/astrologer-blocking.service'; // Check path
 import { Inject, forwardRef } from '@nestjs/common';
 
 @WebSocketGateway({
@@ -30,7 +31,8 @@ export class StreamGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   constructor(
     @Inject(forwardRef(() => StreamSessionService)) 
-    private streamSessionService: StreamSessionService
+    private streamSessionService: StreamSessionService,
+    private blockingService: AstrologerBlockingService
   ) {}
 
   handleConnection(client: Socket) {
@@ -194,6 +196,21 @@ async handleJoinStream(
     console.error('❌ REJECTED JOIN: Invalid User ID');
     return { success: false, error: 'Invalid User ID' };
   }
+
+  // ✅ CHECK BLOCKING BEFORE JOINING
+    if (!data.isHost) { // Only check viewers
+       // We need the hostId. It's not in the data, so we must fetch the stream or look it up.
+       // For efficiency, you might want to cache stream owners, but for now fetch it:
+       const stream = await this.streamSessionService.getStreamById(data.streamId); // Ensure this method exists and is public
+       if (stream) {
+           const isBlocked = await this.blockingService.isUserBlocked(stream.hostId.toString(), data.userId);
+           if (isBlocked) {
+               console.log(`🚫 Blocked user ${data.userId} tried to join stream ${data.streamId}`);
+               client.emit('error', { message: 'You are blocked by this astrologer' });
+               return { success: false, error: 'Blocked' };
+           }
+       }
+    }
 
   // ✅ CRITICAL: map userId → socketId for ALL users
   this.userSockets.set(data.userId, client.id);

@@ -14,6 +14,7 @@ import { StreamGateway } from '../gateways/streaming.gateway';
 import { WalletService } from '../../payments/services/wallet.service';
 import { EarningsService } from '../../astrologers/services/earnings.service';
 import { CreateStreamDto } from '../dto/create-stream.dto';
+import { AstrologerBlockingService } from '../../astrologers/services/astrologer-blocking.service';
 
 @Injectable()
 export class StreamSessionService {
@@ -29,6 +30,7 @@ export class StreamSessionService {
     private streamAgoraService: StreamAgoraService,
     private walletService: WalletService,
     private earningsService: EarningsService,
+    private blockingService: AstrologerBlockingService,
     @Inject(forwardRef(() => StreamGateway)) private streamGateway: StreamGateway,
   ) {}
 
@@ -219,6 +221,12 @@ export class StreamSessionService {
   async requestCall(streamId: string, userId: string, callType: 'voice' | 'video', callMode: 'public' | 'private'): Promise<any> {
     const stream = await this.streamModel.findOne({ streamId, status: 'live' });
     if (!stream) throw new NotFoundException('Stream not live');
+
+    // ✅ STEP 0: Check if blocked
+    const isBlocked = await this.blockingService.isUserBlocked(stream.hostId.toString(), userId);
+    if (isBlocked) {
+      throw new BadRequestException('You are blocked from interacting with this streamer.');
+    }
 
     const price = callType === 'voice' ? stream.callSettings.voiceCallPrice : stream.callSettings.videoCallPrice;
     const minRequired = price * 5; 

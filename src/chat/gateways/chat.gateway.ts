@@ -55,6 +55,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private activeUsers = new Map<string, { socketId: string; userId: string; role: string; sessionId?: string }>();
   private sessionTimers = new Map<string, NodeJS.Timeout>();
   private astrologerSockets = new Map<string, string>(); // astrologerId → socketId mapping
+  private userSockets = new Map<string, string>();
 
   constructor(
     @Inject(forwardRef(() => ChatSessionService))
@@ -64,17 +65,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private notificationService: NotificationService,
   ) {}
 
-  handleConnection(client: AuthSocket) {
-  this.logger.log(`Chat client connected: ${client.id}`);
-  
-  // ✅ AUTO-REGISTER if role is 'Astrologer'
-  const { userId, role } = client.handshake.auth || {};
-  
-  if (role === 'Astrologer' && userId) {
-    this.astrologerSockets.set(userId, client.id);
-    this.logger.log(`✅ Astrologer auto-registered: ${userId} | Socket: ${client.id}`);
+handleConnection(client: AuthSocket) {
+    this.logger.log(`Chat client connected: ${client.id}`);
+    
+    const { userId, role } = client.handshake.auth || {};
+    
+    if (userId) {
+      if (role === 'Astrologer') {
+        this.astrologerSockets.set(userId, client.id);
+      } else {
+        // 🟢 Register User
+        this.userSockets.set(userId, client.id);
+      }
+      this.logger.log(`✅ Registered ${role} socket: ${userId}`);
+    }
   }
-}
 
 isUserOnline(userId: string): boolean {
     return this.activeUsers.has(userId);
@@ -83,6 +88,12 @@ isUserOnline(userId: string): boolean {
 
   handleDisconnect(client: AuthSocket) {
     this.logger.log(`Chat client disconnected: ${client.id}`);
+    for (const [uid, sid] of this.userSockets.entries()) {
+      if (sid === client.id) {
+         this.userSockets.delete(uid);
+         break;
+      }
+    }
 
     for (const [userId, userData] of this.activeUsers.entries()) {
       if (userData.socketId === client.id) {
@@ -162,28 +173,25 @@ isUserOnline(userId: string): boolean {
   }
 
   // ===== ACCEPT CHAT =====
-  @SubscribeMessage('accept_chat')
-  async handleAcceptChat(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: {
-      sessionId: string;
-      astrologerId: string;
-      userId?: string;
-    }
-  ) {
+ @SubscribeMessage('accept_chat')
+  async handleAcceptChat(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
     try {
       const result = await this.chatSessionService.acceptChat(data.sessionId, data.astrologerId);
 
-      // ✅ FIXED: Get the user's socket and send ONLY to them
-      const userData = Array.from(this.activeUsers.values()).find(u => u.sessionId === data.sessionId);
+      // 🟢 Lookup user in GLOBAL map
+      const targetUserId = data.userId || result.data?.userId;
       
-      if (userData) {
-        this.server.to(userData.socketId).emit('chat_accepted', {
-          sessionId: data.sessionId,
-          astrologerId: data.astrologerId,
-          message: 'Astrologer accepted your chat request',
-          timestamp: new Date()
-        });
+      if (targetUserId) {
+        const userSocketId = this.userSockets.get(targetUserId.toString());
+        if (userSocketId) {
+           this.server.to(userSocketId).emit('chat_accepted', {
+            sessionId: data.sessionId,
+            astrologerId: data.astrologerId,
+            message: 'Astrologer accepted your chat request',
+            timestamp: new Date()
+          });
+          this.logger.log(`✅ [ChatGateway] DIRECT send 'chat_accepted' to user: ${targetUserId}`);
+        }
       }
 
       return result;

@@ -183,6 +183,7 @@ export class AdminManagementService {
     // Update fields
     if (updateDto.name) admin.name = updateDto.name;
     if (updateDto.phoneNumber) admin.phoneNumber = updateDto.phoneNumber;
+    if (updateDto.roleType) admin.roleType = updateDto.roleType;
     if (updateDto.department) admin.department = updateDto.department;
     if (updateDto.customPermissions) admin.customPermissions = updateDto.customPermissions;
 

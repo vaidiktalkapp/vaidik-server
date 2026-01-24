@@ -13,7 +13,8 @@ import {
   DefaultValuePipe,
   ValidationPipe,
   NotFoundException,
-  BadRequestException
+  BadRequestException,
+  Logger
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CallSessionService } from '../services/call-session.service';
@@ -28,10 +29,11 @@ interface AuthenticatedRequest extends Request {
 @Controller('calls')
 @UseGuards(JwtAuthGuard)
 export class CallController {
+  private readonly logger = new Logger(CallController.name);
   constructor(
     private callSessionService: CallSessionService,
     private callBillingService: CallBillingService,
-    private callGateway: CallGateway
+    private callGateway: CallGateway,
   ) {}
 
   // ===== GET STATISTICS =====
@@ -125,30 +127,48 @@ async acceptCallAsAstrologer(
 
 // ===== ASTROLOGER: REJECT CALL =====
 @Post('astrologer/reject')
-async rejectCallAsAstrologer(
-  @Req() req: AuthenticatedRequest,
-  @Body('sessionId', new ValidationPipe({ transform: true })) sessionId: string,
-  @Body('reason') reason: string,
-) {
-  if (!sessionId) {
-    throw new BadRequestException('sessionId is required');
+  async rejectCallAsAstrologer(
+    @Req() req: AuthenticatedRequest,
+    @Body('sessionId') sessionId: string, // ✅ Removed inline ValidationPipe to prevent 400s on simple strings
+    @Body('reason') reason: string,
+  ) {
+    if (!sessionId) {
+      throw new BadRequestException('sessionId is required');
+    }
+
+    const astrologerId = req.user._id;
+    const rejectReason = reason || 'astrologer_rejected';
+
+    try {
+        // ✅ FIX: Call Service FIRST to update DB/Order status correctly
+        const result = await this.callSessionService.rejectCall(
+          sessionId,
+          astrologerId,
+          rejectReason
+        );
+
+        // ✅ FIX: THEN Call Gateway to notify User via Socket (Real-time UI update)
+        // Check if gateway exists before calling to avoid crashes
+        if (this.callGateway && this.callGateway.rejectCall) {
+             this.callGateway.rejectCall(sessionId, astrologerId, rejectReason).catch(e => {
+                 this.logger.error(`Failed to emit reject socket: ${e.message}`);
+             });
+        }
+
+        return {
+          success: true,
+          message: 'Call rejected',
+          data: result,
+        };
+    } catch (error) {
+        // If 400 (e.g. already cancelled), just return success to client so UI clears
+        if (error instanceof BadRequestException) {
+            this.logger.warn(`Reject failed gracefully: ${error.message}`);
+            return { success: true, message: 'Call already cancelled or invalid' };
+        }
+        throw error;
+    }
   }
-
-  const astrologerId = req.user._id;
-  const rejectReason = reason || 'astrologer_rejected';
-
-  const result = await this.callGateway.rejectCall(
-      sessionId,
-      astrologerId,
-      rejectReason
-    );
-
-  return {
-    success: true,
-    message: 'Call rejected',
-    data: result,
-  };
-}
 
 /**
  * Get astrologer's call sessions

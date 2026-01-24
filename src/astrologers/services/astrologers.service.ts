@@ -10,6 +10,7 @@ import {
   CountryOption 
 } from '../dto/search-astrologers.dto';
 import { User, UserDocument } from '../../users/schemas/user.schema';
+import { AvailabilityService } from './availability.service';
 
 export interface SearchResult {
   success: boolean;
@@ -34,6 +35,7 @@ export class AstrologersService {
     public readonly astrologerModel: Model<AstrologerDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    private readonly availabilityService: AvailabilityService,
   ) {}
 
   // ✅ Helper: Get blocked astrologer IDs for a user
@@ -49,254 +51,229 @@ export class AstrologersService {
     return obj;
   }
 
+  /**
+   * ✅ UPDATED: Calculates 'realStatus' (Busy/Live/Online) for display
+   */
   private serializeAstrologers(astrologers: any[]): any[] {
-    // Simplified serialization for brevity - keep your existing implementation if it's working
     return astrologers.map(astro => {
         const doc = astro.toObject ? astro.toObject() : astro;
         if(doc._id) doc._id = doc._id.toString();
+        
+        // ✅ Calculate Real-Time Status (Robust Logic)
+        doc.realStatus = this.availabilityService.getRealTimeStatus(doc);
+        
         return doc;
     });
   }
 
-   /**
-   * ✅ FIXED: Advanced search with proper AND/OR Logic
-   */
   async searchAstrologers(
-  searchDto: SearchAstrologersDto, 
-  userId?: string
-): Promise<SearchResult> {
-  const {
-    search,
-    skills,
-    languages,
-    genders,
-    countries,
-    topAstrologers,
-    minPrice,
-    maxPrice,
-    minRating,
-    minExperience,
-    maxExperience,
-    isOnline,
-    isLive,
-    sortBy = 'popularity',
-    page = 1,
-    limit = 20
-  } = searchDto;
+    searchDto: SearchAstrologersDto, 
+    userId?: string
+  ): Promise<SearchResult> {
+    const {
+      search,
+      skills,
+      languages,
+      genders,
+      countries,
+      topAstrologers,
+      minPrice,
+      maxPrice,
+      minRating,
+      minExperience,
+      maxExperience,
+      isOnline,
+      sortBy = 'popularity',
+      page = 1,
+      limit = 20
+    } = searchDto;
 
-  // 1. Base Filters (Active & Complete Profile)
-  const andConditions: any[] = [
-    { accountStatus: 'active' },
-    { 'profileCompletion.isComplete': true }
-  ];
+    // 1. Base Filters
+    const andConditions: any[] = [
+      { accountStatus: 'active' },
+      { 'profileCompletion.isComplete': true }
+    ];
 
-  // 2. Exclude blocked astrologers
-  if (userId) {
-    const blockedIds = await this.getBlockedAstrologerIds(userId);
-    if (blockedIds.length > 0) {
-      andConditions.push({ _id: { $nin: blockedIds } });
-    }
-  }
-
-  // 3. Search Text (Name OR Bio)
-  if (search?.trim()) {
-    const term = search.trim();
-    andConditions.push({
-      $or: [
-        { name: { $regex: term, $options: 'i' } },
-        { bio: { $regex: term, $options: 'i' } }
-      ]
-    });
-  }
-
-  // 4. Skills (FIXED: Uses partial match regex inside $elemMatch or $in)
-  // This ensures 'vedic' matches 'Vedic Astrology'
-  const skillsList = Array.isArray(skills) ? skills : (skills ? [skills] : []);
-  if (skillsList.length > 0) {
-    const skillRegexes = skillsList.map(s => new RegExp(s.trim(), 'i'));
-    andConditions.push({
-      specializations: { $in: skillRegexes }
-    });
-  }
-
-  // 5. Languages (FIXED: Partial match)
-  const langList = Array.isArray(languages) ? languages : (languages ? [languages] : []);
-  if (langList.length > 0) {
-    const langRegexes = langList.map(l => new RegExp(l.trim(), 'i'));
-    andConditions.push({
-      languages: { $in: langRegexes }
-    });
-  }
-
-  // 6. Gender (Exact match is usually fine for gender)
-  const genderList = Array.isArray(genders) ? genders : (genders ? [genders] : []);
-  if (genderList.length > 0) {
-    // Ensure case insensitivity for gender
-    const genderRegexes = genderList.map(g => new RegExp(`^${g}$`, 'i'));
-    andConditions.push({ gender: { $in: genderRegexes } });
-  }
-
-  // 7. Country (India vs Outside)
-  const countryList = Array.isArray(countries) ? countries : (countries ? [countries] : []);
-  if (countryList.length > 0) {
-    const countryOrConditions: any[] = [];
-    
-    // Check for 'india'
-    if (countryList.some(c => c.toLowerCase() === 'india')) {
-      countryOrConditions.push({ country: { $regex: /india/i } });
-    }
-    
-    // Check for 'outside-india'
-    if (countryList.some(c => c.toLowerCase() === 'outside-india')) {
-      countryOrConditions.push({ country: { $not: { $regex: /india/i } } });
+    // 2. Exclude blocked
+    if (userId) {
+      const blockedIds = await this.getBlockedAstrologerIds(userId);
+      if (blockedIds.length > 0) {
+        andConditions.push({ _id: { $nin: blockedIds } });
+      }
     }
 
-    if (countryOrConditions.length > 0) {
-      andConditions.push({ $or: countryOrConditions });
+    // 3. Search Text
+    if (search?.trim()) {
+      const term = search.trim();
+      andConditions.push({
+        $or: [
+          { name: { $regex: term, $options: 'i' } },
+          { bio: { $regex: term, $options: 'i' } }
+        ]
+      });
     }
-  }
 
- // 8. Top Astrologers Categories
+    // 4. Skills
+    const skillsList = Array.isArray(skills) ? skills : (skills ? [skills] : []);
+    if (skillsList.length > 0) {
+      const skillRegexes = skillsList.map(s => new RegExp(s.trim(), 'i'));
+      andConditions.push({ specializations: { $in: skillRegexes } });
+    }
+
+    // 5. Languages
+    const langList = Array.isArray(languages) ? languages : (languages ? [languages] : []);
+    if (langList.length > 0) {
+      const langRegexes = langList.map(l => new RegExp(l.trim(), 'i'));
+      andConditions.push({ languages: { $in: langRegexes } });
+    }
+
+    // 6. Gender
+    const genderList = Array.isArray(genders) ? genders : (genders ? [genders] : []);
+    if (genderList.length > 0) {
+      const genderRegexes = genderList.map(g => new RegExp(`^${g}$`, 'i'));
+      andConditions.push({ gender: { $in: genderRegexes } });
+    }
+
+    // 7. Country
+    const countryList = Array.isArray(countries) ? countries : (countries ? [countries] : []);
+    if (countryList.length > 0) {
+      const countryOrConditions: any[] = [];
+      if (countryList.some(c => c.toLowerCase() === 'india')) {
+        countryOrConditions.push({ country: { $regex: /india/i } });
+      }
+      if (countryList.some(c => c.toLowerCase() === 'outside-india')) {
+        countryOrConditions.push({ country: { $not: { $regex: /india/i } } });
+      }
+      if (countryOrConditions.length > 0) {
+        andConditions.push({ $or: countryOrConditions });
+      }
+    }
+
+    // 8. Tiers
     const tierList = Array.isArray(topAstrologers) 
       ? topAstrologers 
       : (topAstrologers ? [topAstrologers] : []);
-
-    // ✅ FIX: Cast to string array to avoid Enum type conflicts
     const tiers = tierList as unknown as string[];
 
     if (tiers.length > 0 && !tiers.includes('all')) { 
        const tierOrConditions: any[] = [];
-
        if (tiers.includes('celebrity')) {
-         tierOrConditions.push({ 
-            $or: [
-                { tier: 'celebrity' }, 
-                { 'ratings.average': { $gte: 4.8 } } 
-            ]
-         });
+         tierOrConditions.push({ $or: [{ tier: 'celebrity' }, { 'ratings.average': { $gte: 4.8 } }] });
        }
-       
        if (tiers.includes('top-choice')) {
-         tierOrConditions.push({ 
-            $or: [
-                { tier: 'top-choice' },
-                { 'ratings.average': { $gte: 4.5 } }
-            ]
-         });
+         tierOrConditions.push({ $or: [{ tier: 'top-choice' }, { 'ratings.average': { $gte: 4.5 } }] });
        }
-       
        if (tiers.includes('rising-star')) {
-         tierOrConditions.push({ 
-            $or: [
-                { tier: 'rising-star' },
-                { 'stats.totalOrders': { $gte: 50 } }
-            ]
-         });
+         tierOrConditions.push({ $or: [{ tier: 'rising-star' }, { 'stats.totalOrders': { $gte: 50 } }] });
        }
-
        if (tierOrConditions.length > 0) {
          andConditions.push({ $or: tierOrConditions });
        }
     }
 
-  // 9. Numeric Ranges
-  if (minPrice !== undefined || maxPrice !== undefined) {
-    const priceQuery: any = {};
-    if (minPrice) priceQuery.$gte = Number(minPrice);
-    if (maxPrice) priceQuery.$lte = Number(maxPrice);
-    andConditions.push({ 'pricing.chat': priceQuery });
-  }
-
-  if (minRating) {
-    andConditions.push({ 'ratings.average': { $gte: Number(minRating) } });
-  }
-
-  if (minExperience || maxExperience) {
-    const expQuery: any = {};
-    if (minExperience) expQuery.$gte = Number(minExperience);
-    if (maxExperience) expQuery.$lte = Number(maxExperience);
-    andConditions.push({ experienceYears: expQuery });
-  }
-
-  // 10. Status
-  if (String(isOnline) === 'true') {
-      andConditions.push({ 'availability.isOnline': true });
-  }
-
-  // Final Query
-  const finalQuery = andConditions.length > 0 ? { $and: andConditions } : {};
-
-  // 11. Sorting Logic
-  let sortCriteria: any = {};
-  
-  switch (String(sortBy)) {
-    case 'rating-high-low':
-      sortCriteria = { 'ratings.average': -1, 'ratings.total': -1 };
-      break;
-    case 'price-low-high':
-      sortCriteria = { 'pricing.chat': 1 };
-      break;
-    case 'price-high-low':
-      sortCriteria = { 'pricing.chat': -1 };
-      break;
-    case 'exp-high-low':
-      sortCriteria = { experienceYears: -1 };
-      break;
-    case 'exp-low-high':
-      sortCriteria = { experienceYears: 1 };
-      break;
-    case 'orders-high-low':
-      sortCriteria = { 'stats.totalOrders': -1 };
-      break;
-    case 'orders-low-high':
-      sortCriteria = { 'stats.totalOrders': 1 };
-      break;
-    case 'popularity':
-    default:
-      // Mix of factors to show "best" first
-      sortCriteria = { 
-        'availability.isOnline': -1,  // Online first
-        'ratings.average': -1,        // Then high rating
-        'stats.totalOrders': -1       // Then total orders
-      };
-  }
-
-  // Add secondary sort to prevent "jumping" items during pagination
-  sortCriteria._id = 1; 
-
-
-  const skip = (page - 1) * limit;
-
-  const [astrologers, total] = await Promise.all([
-    this.astrologerModel
-      .find(finalQuery)
-      .select('name bio profilePicture experienceYears specializations languages ratings pricing availability stats gender country tier')
-      .sort(sortCriteria)
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .exec(),
-    this.astrologerModel.countDocuments(finalQuery).exec()
-  ]);
-
-  const totalPages = Math.ceil(total / limit);
-
-  return {
-    success: true,
-    data: {
-      astrologers: this.serializeAstrologers(astrologers),
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        pages: totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1
-      },
-      appliedFilters: searchDto
+    // 9. Numeric Ranges
+    if (minPrice || maxPrice) {
+      const priceQuery: any = {};
+      if (minPrice) priceQuery.$gte = Number(minPrice);
+      if (maxPrice) priceQuery.$lte = Number(maxPrice);
+      andConditions.push({ 'pricing.chat': priceQuery });
     }
-  };
-}
+    if (minRating) {
+      andConditions.push({ 'ratings.average': { $gte: Number(minRating) } });
+    }
+    if (minExperience || maxExperience) {
+      const expQuery: any = {};
+      if (minExperience) expQuery.$gte = Number(minExperience);
+      if (maxExperience) expQuery.$lte = Number(maxExperience);
+      andConditions.push({ experienceYears: expQuery });
+    }
+
+    // 10. Status Filter (DB Level) 
+    if (String(isOnline) === 'true') {
+        const now = new Date();
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const currentDay = days[now.getDay()];
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+        andConditions.push({
+            $or: [
+                // 1. Manually Online
+                { 'availability.isOnline': true },
+                
+                // 2. OR Scheduled for Today & Current Time
+                {
+                    'availability.workingHours': {
+                        $elemMatch: {
+                            day: currentDay,
+                            slots: {
+                                $elemMatch: {
+                                    isActive: true,
+                                    start: { $lte: currentTime },
+                                    end: { $gt: currentTime }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        });
+    }
+
+    const finalQuery = andConditions.length > 0 ? { $and: andConditions } : {};
+
+    // 11. Sorting
+    let sortCriteria: any = {};
+    switch (String(sortBy)) {
+      case 'rating-high-low': sortCriteria = { 'ratings.average': -1, 'ratings.total': -1 }; break;
+      case 'price-low-high': sortCriteria = { 'pricing.chat': 1 }; break;
+      case 'price-high-low': sortCriteria = { 'pricing.chat': -1 }; break;
+      case 'exp-high-low': sortCriteria = { experienceYears: -1 }; break;
+      case 'exp-low-high': sortCriteria = { experienceYears: 1 }; break;
+      case 'orders-high-low': sortCriteria = { 'stats.totalOrders': -1 }; break;
+      case 'popularity':
+      default:
+        sortCriteria = { 
+          'availability.isOnline': -1,
+          'ratings.average': -1,
+          'stats.totalOrders': -1 
+        };
+    }
+    sortCriteria._id = 1; 
+
+    const skip = (page - 1) * limit;
+
+    // Fetch
+    const [astrologers, total] = await Promise.all([
+      this.astrologerModel
+        .find(finalQuery)
+        // ✅ Include 'availability' to compute real-time status
+        .select('name bio profilePicture experienceYears specializations languages ratings pricing availability stats gender country tier')
+        .sort(sortCriteria)
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.astrologerModel.countDocuments(finalQuery).exec()
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      success: true,
+      data: {
+        astrologers: this.serializeAstrologers(astrologers), // Computes realStatus
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          pages: totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1
+        },
+        appliedFilters: searchDto
+      }
+    };
+  }
 
 
   async getFilterOptions(): Promise<any> {

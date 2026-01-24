@@ -17,6 +17,7 @@ import { ChatModule } from '../chat/chat.module';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Astrologer, AstrologerSchema } from '../astrologers/schemas/astrologer.schema';
 import { EarningsService } from '../astrologers/services/earnings.service'; 
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -29,7 +30,8 @@ import { EarningsService } from '../astrologers/services/earnings.service';
     PaymentsModule,
     AstrologersModule,
     NotificationsModule,
-    ChatModule, // ✅ ADD
+    ChatModule,
+    UsersModule,
   ],
   controllers: [CallController],
   providers: [

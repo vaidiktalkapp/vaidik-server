@@ -240,6 +240,12 @@ blockedAstrologers: Array<{
   status: string;
 
   @Prop({ required: false })
+  permanentDeletionAt?: Date;
+
+  @Prop({ required: false })
+  deletionReason?: string;
+
+  @Prop({ required: false })
   lastLoginAt?: Date;
 
   @Prop({ required: false })

@@ -1,5 +1,5 @@
 // src/auth/services/astrologer-auth.service.ts (UPDATED - OPTIONAL FCM TOKEN)
-import { Injectable, BadRequestException, UnauthorizedException, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Astrologer, AstrologerDocument } from '../../astrologers/schemas/astrologer.schema';
@@ -168,9 +168,10 @@ export class AstrologerAuthService {
     
     this.logger.log('🔍 Checking for approved astrologer', { fullPhoneNumber });
 
+    // ✅ FIX: Add 'deleted' to the allowed statuses so they can proceed to OTP
     const astrologer = await this.astrologerModel.findOne({
       phoneNumber: fullPhoneNumber,
-      accountStatus: { $in: ['active', 'inactive'] }
+      accountStatus: { $in: ['active', 'inactive', 'deleted'] } 
     });
 
     if (!astrologer) {
@@ -184,6 +185,7 @@ export class AstrologerAuthService {
       };
     }
 
+    // 1. Check Suspension
     if (astrologer.accountStatus === 'suspended') {
       this.logger.log('⚠️ Astrologer account suspended');
       return {
@@ -193,6 +195,23 @@ export class AstrologerAuthService {
           message: 'Your account is suspended. Please contact support.'
         }
       };
+    }
+
+    // 2. ✅ Check Permanent Deletion Date (New Check)
+    // If they are 'deleted' but the 7 days have passed, we must treat them as "Not Found" or "Permanently Deleted"
+    if (astrologer.accountStatus === 'deleted') {
+      const now = new Date();
+      if (astrologer.permanentDeletionAt && now > astrologer.permanentDeletionAt) {
+        return {
+          success: true,
+          data: {
+            canLogin: false,
+            message: 'This account has been permanently deleted and cannot be restored.'
+          }
+        };
+      }
+      // If within 7 days, allow them to proceed. 
+      // restoration happens in verifyLoginOtp
     }
 
     this.logger.log('✅ Approved astrologer found', {
@@ -269,17 +288,28 @@ export class AstrologerAuthService {
       throw new UnauthorizedException('Astrologer profile not found');
     }
 
-    if (astrologer.accountStatus === 'suspended') {
+    // ✅ CHECK DELETION STATUS FIRST
+    if (astrologer.accountStatus === 'deleted') {
+      const now = new Date();
+      if (astrologer.permanentDeletionAt && now > astrologer.permanentDeletionAt) {
+        throw new ForbiddenException('Your account has been permanently deleted.');
+      }
+
+      // Restore
+      this.logger.log(`♻️ Restoring astrologer ${astrologer._id} from deletion`);
+      astrologer.accountStatus = 'active';
+      astrologer.permanentDeletionAt = undefined;
+      astrologer.deletionReason = undefined;
+      
+      // Optional: You might want to keep them 'offline' until they manually go online
+      astrologer.availability.isAvailable = false; 
+    }
+    else if (astrologer.accountStatus === 'suspended') {
       throw new UnauthorizedException(
         `Your account is suspended. Reason: ${astrologer.suspensionReason || 'Please contact support'}`
       );
     }
-
-    this.logger.log('✅ Astrologer found', { astrologerId: astrologer._id });
-
-    // Reactivate if needed
-    if (astrologer.accountStatus === 'deleted' || astrologer.accountStatus === 'inactive') {
-      this.logger.log(`♻️ Reactivating ${astrologer.accountStatus} astrologer`);
+    else if (astrologer.accountStatus === 'inactive') {
       astrologer.accountStatus = 'active';
     }
 
@@ -317,7 +347,9 @@ export class AstrologerAuthService {
 
     return {
       success: true,
-      message: 'Login successful',
+      message: astrologer.permanentDeletionAt === undefined 
+        ? 'Welcome back! Your account deletion request has been cancelled.' 
+        : 'Login successful',
       data: {
         astrologer,
         tokens,
@@ -502,9 +534,20 @@ export class AstrologerAuthService {
       }
 
       // Reactivate if needed
-      if (astrologer.accountStatus === 'deleted' || astrologer.accountStatus === 'inactive') {
-        astrologer.accountStatus = 'active';
-      }
+if (astrologer.accountStatus === 'deleted') {
+  const now = new Date();
+  // 1. Check if the permanent deletion time has passed
+  if (astrologer.permanentDeletionAt && now > astrologer.permanentDeletionAt) {
+    throw new ForbiddenException('Your account has been permanently deleted.');
+  }
+  // 2. Restore if within grace period
+  astrologer.accountStatus = 'active';
+  astrologer.permanentDeletionAt = undefined;
+  astrologer.deletionReason = undefined;
+} 
+else if (astrologer.accountStatus === 'inactive') {
+  astrologer.accountStatus = 'active';
+}
 
       // Register device if provided - now fully optional
       if (deviceInfo && (deviceInfo.deviceId || deviceInfo.fcmToken)) {

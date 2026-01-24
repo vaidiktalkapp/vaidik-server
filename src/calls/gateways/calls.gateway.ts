@@ -26,6 +26,7 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(CallGateway.name);
   private activeUsers = new Map<string, { socketId: string; userId: string; role: string; sessionId?: string }>();
   private sessionTimers = new Map<string, NodeJS.Timeout>();
+  private userSockets = new Map<string, string>();
   private astrologerSockets = new Map<string, string>();
   private activeRecordings = new Map<string, string>();
   
@@ -40,9 +41,26 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private callBillingService: CallBillingService
   ) {}
 
-  async handleConnection(client: Socket) { this.logger.log(`Call client connected: ${client.id}`); }
+  async handleConnection(client: Socket) {
+    this.logger.log(`Call client connected: ${client.id}`);
+    
+    // Extract User ID from handshake (support both auth and query)
+    const userId = client.handshake.auth?.userId || client.handshake.query?.userId;
+    
+    if (userId) {
+      this.userSockets.set(userId.toString(), client.id);
+      this.logger.log(`✅ [CallGateway] Registered User Socket globally: ${userId}`);
+    }
+  }
+
   async handleDisconnect(client: Socket) {
     this.logger.log(`Call client disconnected: ${client.id}`);
+    for (const [uid, sid] of this.userSockets.entries()) {
+      if (sid === client.id) {
+        this.userSockets.delete(uid);
+        break;
+      }
+    }
     for (const [userId, userData] of this.activeUsers.entries()) {
       if (userData.socketId === client.id) {
         if (userData.sessionId) {
@@ -92,39 +110,40 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
 @SubscribeMessage('accept_call')
-async handleAcceptCall(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
-  try {
-    const result = await this.callSessionService.acceptCall(data.sessionId, data.astrologerId);
-    
-    // ✅ FIX: Use the full data object returned from the service
-    // This includes astrologerName, Image, Rate, OrderId, etc.
-    const eventPayload = { 
-      ...(result.data || {}), 
-      sessionId: data.sessionId, 
-      astrologerId: data.astrologerId,
-      timestamp: new Date().toISOString(),
-    };
+  async handleAcceptCall(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
+    try {
+      const result = await this.callSessionService.acceptCall(data.sessionId, data.astrologerId);
+      
+      const eventPayload = { 
+        ...(result.data || {}), 
+        sessionId: data.sessionId, 
+        astrologerId: data.astrologerId,
+        timestamp: new Date().toISOString(),
+      };
 
-    // Emit to ROOM
-    this.server.to(data.sessionId).emit('call_accepted', eventPayload);
-    this.logger.log(`✅ [CallGateway] Broadcasted rich call_accepted to room: ${data.sessionId}`);
-    
-    // Emit to USER socket (fallback)
-    const userData = Array.from(this.activeUsers.values()).find(
-      u => u.sessionId === data.sessionId && u.role === 'user'
-    );
-    
-    if (userData) {
-      this.server.to(userData.socketId).emit('call_accepted', eventPayload);
-      this.logger.log(`✅ [CallGateway] Also sent to user socket: ${userData.socketId}`);
+      // Broadcast to Room (in case they ARE joined)
+      this.server.to(data.sessionId).emit('call_accepted', eventPayload);
+      
+      // 🟢 GUARANTEED DELIVERY: Send directly to User's socket via Global Map
+      // Ensure we have the userId from the service result or the incoming data
+      const targetUserId = result.data?.userId || data.userId; 
+      
+      if (targetUserId) {
+        const userSocketId = this.userSockets.get(targetUserId.toString());
+        if (userSocketId) {
+          this.server.to(userSocketId).emit('call_accepted', eventPayload);
+          this.logger.log(`✅ [CallGateway] DIRECT send 'call_accepted' to user: ${targetUserId}`);
+        } else {
+          this.logger.warn(`⚠️ [CallGateway] User ${targetUserId} socket not found in global map`);
+        }
+      }
+      
+      return result;
+    } catch (error: any) { 
+      this.logger.error(`❌ [CallGateway] Accept error: ${error.message}`);
+      return { success: false, message: error.message }; 
     }
-    
-    return result;
-  } catch (error: any) { 
-    this.logger.error(`❌ [CallGateway] Accept call error: ${error.message}`);
-    return { success: false, message: error.message }; 
   }
-}
 
 @SubscribeMessage('user_joined_agora')
   async handleUserJoinedAgora(@ConnectedSocket() client: Socket, @MessageBody() data: { sessionId: string; role: string }) {

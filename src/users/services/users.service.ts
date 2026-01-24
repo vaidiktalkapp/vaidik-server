@@ -1,12 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { User, UserDocument } from '../schemas/user.schema';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { UpdatePreferencesDto } from '../dto/update-preferences.dto';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
@@ -345,22 +348,64 @@ async updatePreferences(userId: string, updateDto: UpdatePreferencesDto): Promis
   // ===== ACCOUNT MANAGEMENT =====
 
   // Delete user account (soft delete)
-  async deleteAccount(userId: string): Promise<any> {
+  async deleteAccount(userId: string, reason?: string): Promise<any> {
     const user = await this.userModel.findById(userId);
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
+    // Calculate date 7 days from now
+    const deletionDate = new Date();
+    deletionDate.setDate(deletionDate.getDate() + 7);
+
     await this.userModel.findByIdAndUpdate(userId, {
       status: 'deleted',
-      updatedAt: new Date()
+      permanentDeletionAt: deletionDate,
+      deletionReason: reason,
+      updatedAt: new Date(),
+      // Clear sensitive device data immediately to prevent push notifications
+      devices: [],
     });
 
     return {
       success: true,
-      message: 'Account deleted successfully',
+      message: 'Account scheduled for deletion. It will be permanently removed in 7 days.',
+      data: {
+        scheduledDate: deletionDate,
+        restoreAvailableUntil: deletionDate
+      }
     };
+  }
+
+  // ✅ NEW: CRON Job to handle permanent deletion
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleScheduledDeletions() {
+    this.logger.log('Starting scheduled user account deletion cleanup...');
+    
+    const now = new Date();
+    
+    // Find users marked for deletion whose time has passed
+    const usersToDelete = await this.userModel.find({
+      status: 'deleted',
+      permanentDeletionAt: { $lte: now }
+    }).select('_id phoneNumber');
+
+    if (usersToDelete.length === 0) return;
+
+    let deletedCount = 0;
+    
+    for (const user of usersToDelete) {
+      try {
+        // ✅ CHANGED: Use anonymizeUser instead of deleteOne
+        await this.anonymizeUser(user._id as unknown as string);
+        deletedCount++;
+      } catch (error) {
+        this.logger.error(`Failed to anonymize user ${user._id}: ${error.message}`);
+      }
+    }
+
+    this.logger.log(`Cleanup complete. Anonymized ${deletedCount} user accounts.`);
   }
 
   // Update last active timestamp
@@ -417,5 +462,49 @@ async updatePreferences(userId: string, updateDto: UpdatePreferencesDto): Promis
     });
 
     return user.save();
+  }
+
+  async anonymizeUser(userId: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user) return;
+
+    this.logger.log(`Anonymizing user data for: ${userId}`);
+
+    // 1. Generate random anonymous ID
+    // Format: +91000... to ensure it passes the regex validator ^(\+\d{10,15}|\d{10,15})$
+    const randomSuffix = Math.floor(1000000000 + Math.random() * 9000000000).toString(); // 10 digits
+    const dummyPhone = `+00${randomSuffix}`; 
+
+    // 2. Overwrite PII fields
+    user.name = "Deleted User";
+    user.phoneNumber = dummyPhone; 
+    user.phoneHash = `deleted_${user._id}`; // Ensure uniqueness for index
+    
+    // 3. Clear location/profile data
+    user.currentAddress = undefined;
+    user.city = undefined;
+    user.state = undefined;
+    user.placeOfBirth = undefined;
+    user.dateOfBirth = undefined;
+    user.timeOfBirth = undefined;
+    
+    // ✅ FIX 1: Don't set to null if schema has a default string. 
+    // Set to empty string to clear the image while maintaining type safety.
+    user.profileImage = ''; 
+    user.profileImageS3Key = '';
+    
+    // 4. Clear technical data
+    user.devices = []; // Remove FCM tokens
+    user.favoriteAstrologers = [];
+    user.blockedAstrologers = [];
+    
+
+    // 6. Set Status & Clear Timer
+    user.status = 'deleted'; 
+    // ✅ CRITICAL: Unset this date so the Cron Job doesn't pick it up again tomorrow
+    user.permanentDeletionAt = undefined; 
+    user.deletionReason = undefined;
+
+    await user.save();
   }
 }

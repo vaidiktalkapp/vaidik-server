@@ -17,6 +17,7 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { Astrologer, AstrologerSchema } from '../astrologers/schemas/astrologer.schema';
 import { EarningsService } from '../astrologers/services/earnings.service'; 
 import { UploadModule } from '../upload/upload.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -31,7 +32,8 @@ import { UploadModule } from '../upload/upload.module';
     PaymentsModule,
     AstrologersModule,
     forwardRef(() => NotificationsModule),
-    UploadModule
+    UploadModule,
+    UsersModule,
   ],
   controllers: [ChatController],
   providers: [ChatGateway, ChatSessionService, ChatMessageService, EarningsService],

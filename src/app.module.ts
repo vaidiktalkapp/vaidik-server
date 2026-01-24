@@ -33,6 +33,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SupportModule } from './support/support.module';
 import { AdminModule } from './admin/admin.module';
+import { ModerationModule } from './moderation/moderation.module';
 
 @Module({
   imports: [
@@ -117,6 +118,7 @@ import { AdminModule } from './admin/admin.module';
     BankAccountsModule,
     TransactionsModule,
     RemediesModule,
+    ModerationModule,
   ],
   controllers: [AppController],
   providers: [

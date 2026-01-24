@@ -3,6 +3,7 @@ import {
   Injectable, 
   BadRequestException, 
   UnauthorizedException, 
+  ForbiddenException,
   Logger 
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -236,6 +237,7 @@ export class AuthService {
       }).exec();
       
       let isNewUser = false;
+      let restoreMessage: string | null = null;
 
       if (!user) {
         this.logger.log('📤 AUTH SERVICE: Creating new user...');
@@ -273,10 +275,29 @@ export class AuthService {
       } else {
         this.logger.log('📤 AUTH SERVICE: Existing user found');
         
-        if (user.status === 'deleted' || user.status === 'inactive') {
-          this.logger.log(`♻️ AUTH SERVICE: Reactivating ${user.status} user`);
-          user.status = 'active';
+        // ✅ RESTORE LOGIC START
+      if (user.status === 'deleted') {
+        const now = new Date();
+        
+        // If scheduled deletion time has PASSED, deny login (even if cron hasn't run yet)
+        if (user.permanentDeletionAt && now > user.permanentDeletionAt) {
+          throw new ForbiddenException('Your account has been permanently deleted and cannot be restored.');
         }
+
+        // Within grace period: Restore Account
+        this.logger.log(`♻️ Restoring user ${user._id} scheduled for deletion on ${user.permanentDeletionAt}`);
+        user.status = 'active';
+        user.permanentDeletionAt = undefined;
+        user.deletionReason = undefined;
+        restoreMessage = 'Welcome back! Your account deletion has been cancelled.';
+      } 
+      else if (user.status === 'inactive' || user.status === 'suspended') {
+        // Keep existing suspension logic if you have it, or reactivate inactive
+        if (user.status === 'suspended') {
+           throw new ForbiddenException('Your account is suspended. Please contact support.');
+        }
+        user.status = 'active';
+      }
 
         const updateData: any = {
           isPhoneVerified: true,
@@ -324,7 +345,7 @@ export class AuthService {
 
       const result = {
         success: true,
-        message: isNewUser ? 'Registration successful' : 'Login successful',
+        message: restoreMessage || (isNewUser ? 'Registration successful' : 'Login successful'),
         data: {
           user: {
             id: user._id,
@@ -452,7 +473,20 @@ export class AuthService {
         isNewUser = true;
         this.logger.log('✅ New user created via Truecaller');
       } else {
-        if (user.status === 'deleted' || user.status === 'inactive') {
+        if (user.status === 'deleted') {
+          const now = new Date();
+          if (user.permanentDeletionAt && now > user.permanentDeletionAt) {
+            throw new ForbiddenException('Your account has been permanently deleted.');
+          }
+          this.logger.log(`♻️ Restoring user ${user._id} from deletion`);
+          user.status = 'active';
+          user.permanentDeletionAt = undefined;
+          user.deletionReason = undefined;
+        } 
+        else if (user.status === 'suspended') {
+             throw new ForbiddenException('Your account is suspended.');
+        }
+        else if (user.status === 'inactive') {
           user.status = 'active';
         }
 

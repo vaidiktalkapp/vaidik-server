@@ -13,6 +13,8 @@ import { Astrologer, AstrologerDocument } from '../../astrologers/schemas/astrol
 import { EarningsService } from '../../astrologers/services/earnings.service';
 import { PenaltyService } from '../../astrologers/services/penalty.service';
 import { ChatGateway } from '../gateways/chat.gateway';
+import { AstrologerBlockingService } from '../../astrologers/services/astrologer-blocking.service';
+import { UserBlockingService } from 'src/users/services/user-blocking.service';
 
 @Injectable()
 export class ChatSessionService {
@@ -32,6 +34,8 @@ export class ChatSessionService {
     private notificationService: NotificationService,
     private earningsService: EarningsService,
     private penaltyService: PenaltyService,
+    private blockingService: AstrologerBlockingService,
+    private userBlockingService: UserBlockingService,
   ) {}
 
   private generateSessionId(): string {
@@ -53,6 +57,14 @@ export class ChatSessionService {
     astrologerName: string;
     ratePerMinute: number;
   }): Promise<any> {
+    const isBlocked = await this.blockingService.isUserBlocked(sessionData.astrologerId, sessionData.userId);
+    if (isBlocked) {
+      throw new BadRequestException('You have been blocked by this astrologer.');
+    }
+    const isAstrologerBlocked = await this.userBlockingService.isAstrologerBlocked(this.toObjectId(sessionData.userId), sessionData.astrologerId);
+    if (isAstrologerBlocked) {
+    throw new BadRequestException('You have blocked this astrologer. Unblock them to continue.');
+    }
     const estimatedCost = sessionData.ratePerMinute * 5;
     const hasBalance = await this.walletService.checkBalance(
       sessionData.userId,
