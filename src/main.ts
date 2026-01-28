@@ -22,6 +22,10 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:5000',
+      'http://3.109.60.127:3002',
+      'http://3.109.60.127:3003',
+      'https://admin.vaidiktalk.com',
+      'https://app.vaidiktalk.com',
     ],
     credentials: true,
   });
