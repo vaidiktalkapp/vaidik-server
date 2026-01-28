@@ -1162,7 +1162,24 @@
     "/api/v1/astrologer/earnings": {
       "get": {
         "operationId": "AstrologerProfileController_getEarnings",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "startDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1176,7 +1193,24 @@
     "/api/v1/astrologer/stats": {
       "get": {
         "operationId": "AstrologerProfileController_getStats",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "startDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1229,39 +1263,17 @@
     "/api/v1/astrologer/transactions/stats": {
       "get": {
         "operationId": "AstrologerProfileController_getTransactionStats",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "AstrologerProfile"
-        ]
-      }
-    },
-    "/api/v1/astrologer/gifts/history": {
-      "get": {
-        "operationId": "AstrologerProfileController_getGiftHistory",
         "parameters": [
           {
-            "name": "page",
+            "name": "startDate",
             "required": true,
             "in": "query",
             "schema": {
-              "type": "number"
+              "type": "string"
             }
           },
           {
-            "name": "limit",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "context",
+            "name": "endDate",
             "required": true,
             "in": "query",
             "schema": {
@@ -1282,6 +1294,37 @@
     "/api/v1/astrologer/gifts/stats": {
       "get": {
         "operationId": "AstrologerProfileController_getGiftStats",
+        "parameters": [
+          {
+            "name": "startDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AstrologerProfile"
+        ]
+      }
+    },
+    "/api/v1/astrologer/account": {
+      "delete": {
+        "operationId": "AstrologerProfileController_deleteAccount",
         "parameters": [],
         "responses": {
           "200": {
@@ -1290,6 +1333,57 @@
         },
         "tags": [
           "AstrologerProfile"
+        ]
+      }
+    },
+    "/api/v1/astrologer/block-user": {
+      "post": {
+        "operationId": "AstrologerBlockingController_blockUser",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AstrologerBlocking"
+        ]
+      }
+    },
+    "/api/v1/astrologer/unblock-user/{userId}": {
+      "delete": {
+        "operationId": "AstrologerBlockingController_unblockUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AstrologerBlocking"
+        ]
+      }
+    },
+    "/api/v1/astrologer/blocked-users": {
+      "get": {
+        "operationId": "AstrologerBlockingController_getBlockedUsers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AstrologerBlocking"
         ]
       }
     },
@@ -9031,6 +9125,20 @@
         },
         "tags": [
           "Transaction"
+        ]
+      }
+    },
+    "/api/v1/common/report": {
+      "post": {
+        "operationId": "ModerationController_reportAbuse",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Moderation"
         ]
       }
     }

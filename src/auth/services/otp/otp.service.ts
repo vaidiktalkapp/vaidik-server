@@ -24,7 +24,7 @@ export class OtpService {
   private readonly VEPAAR_API_URL = 'https://api.vepaar.com/api/v1/send-otp';
 
   // 🧪 Test ACCOUNT CREDENTIALS
-  private readonly DEMO_PHONE = '9988776655';
+  private readonly DEMO_PHONE = '9873211086';
   private readonly DEMO_OTP = '987654';
 
   constructor(
