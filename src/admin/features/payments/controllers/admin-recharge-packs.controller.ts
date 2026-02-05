@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Delete, Body, Param, UseGuards, Put } from '@nestjs/common';
 import { WalletService } from '../../../../payments/services/wallet.service';
 import { JwtAuthGuard } from '../../../../auth/guards/jwt-auth.guard';
-import { RequirePermissions } from '../../../../admin/core/decorators/permissions.decorator';
-import { Permissions } from '../../../../admin/core/config/permissions.config';
+import { RequirePermissions } from '../../../core/decorators/permissions.decorator';
+import { Permissions } from '../../../core/config/permissions.config';
 
 @Controller('admin/payments/recharge-packs')
 @UseGuards(JwtAuthGuard) // Add RolesGuard if needed

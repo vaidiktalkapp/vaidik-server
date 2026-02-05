@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import axios from 'axios';
-import { OtpStorageService } from '../otp/otp-storage.service';
+import { OtpStorageService } from './otp-storage.service';
 const FormData = require('form-data');
 
 // Custom TooManyRequestsException

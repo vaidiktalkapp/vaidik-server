@@ -2891,6 +2891,20 @@
         ]
       }
     },
+    "/api/v1/notifications/clear-all": {
+      "delete": {
+        "operationId": "NotificationController_clearAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notification"
+        ]
+      }
+    },
     "/api/v1/notifications/{notificationId}": {
       "delete": {
         "operationId": "NotificationController_deleteNotification",
@@ -2904,20 +2918,6 @@
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Notification"
-        ]
-      }
-    },
-    "/api/v1/notifications/clear-all": {
-      "delete": {
-        "operationId": "NotificationController_clearAll",
-        "parameters": [],
         "responses": {
           "200": {
             "description": ""

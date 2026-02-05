@@ -381,75 +381,76 @@ this.notificationService.sendNotification({
  * Get astrologer's chat sessions
  */
 async getAstrologerChatSessions(
-  astrologerId: string,
-  filters: {
-    page: number;
-    limit: number;
-    status?: string;
-  }
-): Promise<any> {
-  const query: any = {
-    astrologerId: this.toObjectId(astrologerId)
-  };
-
-  if (filters.status) {
-    query.status = filters.status;
-  }
-
-  const skip = (filters.page - 1) * filters.limit;
-
-  const [sessions, total] = await Promise.all([
-    this.sessionModel
-      .find(query)
-      .populate('userId', 'name profileImage phoneNumber')
-      .select('sessionId userId ratePerMinute status duration billedMinutes totalAmount startTime endTime createdAt messageCount')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(filters.limit)
-      .lean(),
-    this.sessionModel.countDocuments(query)
-  ]);
-
-  return {
-    success: true,
-    data: {
-      sessions,
-      pagination: {
-        page: filters.page,
-        limit: filters.limit,
-        total,
-        pages: Math.ceil(total / filters.limit)
-      }
+    astrologerId: string,
+    filters: {
+      page: number;
+      limit: number;
+      status?: string;
     }
-  };
-}
+  ): Promise<any> {
+    const query: any = {
+      astrologerId: this.toObjectId(astrologerId)
+    };
+
+    if (filters.status) {
+      query.status = filters.status;
+    }
+
+    const skip = (filters.page - 1) * filters.limit;
+
+    // ✅ FIXED: Added 'lastMessage', 'lastMessageAt' to select so list shows previews
+    const [sessions, total] = await Promise.all([
+      this.sessionModel
+        .find(query)
+        .populate('userId', 'name profileImage phoneNumber')
+        .select('sessionId userId ratePerMinute status duration billedMinutes totalAmount startTime endTime createdAt messageCount lastMessage lastMessageAt')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(filters.limit)
+        .lean(),
+      this.sessionModel.countDocuments(query)
+    ]);
+
+    return {
+      success: true,
+      data: {
+        sessions,
+        pagination: {
+          page: filters.page,
+          limit: filters.limit,
+          total,
+          pages: Math.ceil(total / filters.limit)
+        }
+      }
+    };
+  }
 
 /**
  * Get astrologer chat session details
  */
 async getAstrologerChatSessionDetails(
-  sessionId: string,
-  astrologerId: string
-): Promise<any> {
-  const session = await this.sessionModel
-    .findOne({
-      sessionId,
-      astrologerId: this.toObjectId(astrologerId)
-    })
-    .populate('userId', 'name profileImage phoneNumber email')
-    .lean();
+    sessionId: string,
+    astrologerId: string
+  ): Promise<any> {
+    const session = await this.sessionModel
+      .findOne({
+        sessionId,
+        astrologerId: this.toObjectId(astrologerId)
+      })
+      // ✅ FIXED: Included Kundli details (gender, DOB, time, place)
+      .populate('userId', 'name profileImage phoneNumber email gender dateOfBirth placeOfBirth timeOfBirth')
+      .lean();
 
-  if (!session) {
-    throw new NotFoundException('Chat session not found');
-  }
-
-  return {
-    success: true,
-    data: {
-      session,
+    if (!session) {
+      throw new NotFoundException('Chat session not found');
     }
-  };
-}
+
+    // ✅ FIXED: Return data directly to match Call structure
+    return {
+      success: true,
+      data: session 
+    };
+  }
 
   // ===== END SESSION =====
   /**

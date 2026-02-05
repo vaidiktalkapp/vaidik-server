@@ -387,7 +387,6 @@ export class CallSessionService {
     };
   }
 
-  // ===== END CALL SESSION =====
 // ===== END CALL SESSION (OPTIMIZED) =====
   async endSession(
     sessionId: string,
@@ -699,13 +698,57 @@ export class CallSessionService {
       return { success: true, message: 'Call cancelled' };
   }
 
-    async getAstrologerCallSessions(astrologerId: string, filters: any): Promise<any> {
-        return { success: true, data: { sessions: [], pagination: {} } }; 
-    }
+    async getAstrologerCallSessions(
+    astrologerId: string, 
+    filters: { page: number; limit: number; status?: string }
+  ): Promise<any> {
+      const skip = (filters.page - 1) * filters.limit;
+      const query: any = { 
+        astrologerId: this.toObjectId(astrologerId) 
+      };
+
+      if (filters.status) {
+        query.status = filters.status;
+      }
+
+      const [sessions, total] = await Promise.all([
+        this.sessionModel.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(filters.limit)
+          .populate('userId', 'name profileImage phoneNumber') 
+          .lean(),
+        this.sessionModel.countDocuments(query)
+      ]);
+
+      return {
+        success: true,
+        data: {
+          sessions,
+          pagination: {
+            page: filters.page,
+            limit: filters.limit,
+            total,
+            pages: Math.ceil(total / filters.limit)
+          }
+        }
+      };
+  }
     
-    async getAstrologerCallSessionDetails(sessionId: string, astrologerId: string): Promise<any> {
-         return { success: true, data: {} };
-    }
+  async getAstrologerCallSessionDetails(sessionId: string, astrologerId: string): Promise<any> {
+        const session = await this.sessionModel.findOne({
+          sessionId,
+          astrologerId: this.toObjectId(astrologerId)
+        })
+        .populate('userId', 'name profileImage phoneNumber gender dateOfBirth placeOfBirth timeOfBirth')
+        .lean();
+
+        if (!session) {
+          throw new NotFoundException('Call session not found');
+        }
+
+        return { success: true, data: session };
+  }
    
     async getCallHistory(userId: string, page: number, limit: number): Promise<any> {
     const skip = (page - 1) * limit;
