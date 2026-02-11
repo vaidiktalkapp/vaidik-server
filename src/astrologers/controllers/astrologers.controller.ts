@@ -303,7 +303,7 @@ export class AstrologersController {
     
     if (shouldIncludeReviews) {
       // ✅ Seed test reviews if none exist (for testing)
-      await this.ratingReviewService.seedTestReviewsIfEmpty(astrologerId);
+      // await this.ratingReviewService.seedTestReviewsIfEmpty(astrologerId);
       
       // Get reviews
       const reviewsData = await this.ratingReviewService.getAstrologerReviews(
