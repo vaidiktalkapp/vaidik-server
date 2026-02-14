@@ -481,7 +481,7 @@ async endCurrentCall(streamId: string, hostId: string): Promise<any> {
 
         } catch (error: any) {
           this.logger.error(`❌ Payment Failed: ${error.message}`);
-          transaction.status = 'payment_failed'; 
+          transaction.status = 'failed'; 
           transaction.totalCharge = 0;
         }
 
