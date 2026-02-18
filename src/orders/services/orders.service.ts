@@ -24,7 +24,7 @@ export class OrdersService {
     private notificationService: NotificationService,
     private earningsService: EarningsService,
     private userBlockingService: UserBlockingService,
-  ) {}
+  ) { }
 
   // ===== HELPERS =====
   private generateOrderId(): string {
@@ -41,55 +41,55 @@ export class OrdersService {
 
   // ===== FIND OR CREATE CONVERSATION THREAD =====
   async findOrCreateConversationThread(
-  userId: string,
-  astrologerId: string,
-  astrologerName: string,
-  ratePerMinute: number
-): Promise<OrderDocument> {
-  const conversationThreadId = this.generateConversationThreadId(userId, astrologerId);
+    userId: string,
+    astrologerId: string,
+    astrologerName: string,
+    ratePerMinute: number
+  ): Promise<OrderDocument> {
+    const conversationThreadId = this.generateConversationThreadId(userId, astrologerId);
 
-  // ✅ Use findOneAndUpdate with upsert (atomic operation)
-  const order = await this.orderModel.findOneAndUpdate(
-    { conversationThreadId, isDeleted: false },
-    {
-      $setOnInsert: {
-        orderId: this.generateOrderId(),
-        conversationThreadId,
-        userId: this.toObjectId(userId),
-        astrologerId: this.toObjectId(astrologerId),
-        astrologerName,
-        type: 'conversation',
-        ratePerMinute,
-        status: 'active',
-        requestCreatedAt: new Date(),
-        isActive: true,
-        sessionHistory: [],
-        totalUsedDurationSeconds: 0,
-        totalBilledMinutes: 0,
-        totalAmount: 0,
-        totalSessions: 0,
-        totalChatSessions: 0,
-        totalCallSessions: 0,
-        messageCount: 0,
-        reviewSubmitted: false,
-        payment: {
-          status: 'none',
-          heldAmount: 0,
-          chargedAmount: 0,
-          refundedAmount: 0
+    // ✅ Use findOneAndUpdate with upsert (atomic operation)
+    const order = await this.orderModel.findOneAndUpdate(
+      { conversationThreadId, isDeleted: false },
+      {
+        $setOnInsert: {
+          orderId: this.generateOrderId(),
+          conversationThreadId,
+          userId: this.toObjectId(userId),
+          astrologerId: this.toObjectId(astrologerId),
+          astrologerName,
+          type: 'conversation',
+          ratePerMinute,
+          status: 'active',
+          requestCreatedAt: new Date(),
+          isActive: true,
+          sessionHistory: [],
+          totalUsedDurationSeconds: 0,
+          totalBilledMinutes: 0,
+          totalAmount: 0,
+          totalSessions: 0,
+          totalChatSessions: 0,
+          totalCallSessions: 0,
+          messageCount: 0,
+          reviewSubmitted: false,
+          payment: {
+            status: 'none',
+            heldAmount: 0,
+            chargedAmount: 0,
+            refundedAmount: 0
+          }
         }
+      },
+      {
+        upsert: true, // Create if not exists
+        new: true,    // Return the document
+        runValidators: true
       }
-    },
-    { 
-      upsert: true, // Create if not exists
-      new: true,    // Return the document
-      runValidators: true
-    }
-  );
+    );
 
-  this.logger.log(`Conversation thread: ${order.orderId} (new: ${order.isNew})`);
-  return order;
-}
+    this.logger.log(`Conversation thread: ${order.orderId} (new: ${order.isNew})`);
+    return order;
+  }
 
 
   // ===== GENERATE CONVERSATION THREAD ID =====
@@ -379,7 +379,7 @@ export class OrdersService {
     // ✅ MAP Data to required format
     const formattedConversations = conversations.map(conv => {
       const astrologer = conv.astrologerId as any; // Cast for TS
-      
+
       // Determine Category
       let category = 'none';
       if (conv.totalChatSessions > 0 && conv.totalCallSessions > 0) {
@@ -509,7 +509,7 @@ export class OrdersService {
         .lean();
 
       if (astrologer) {
-        const commissionRate = astrologer.earnings?.platformCommission ?? 40; // default 40% platform
+        const commissionRate = astrologer.earnings?.platformCommission ?? 50; // default 50% platform
         const userSpend = chargedAmount || 0;
         const platformCommission = (userSpend * commissionRate) / 100;
         const astrologerEarning = userSpend - platformCommission;
@@ -579,9 +579,9 @@ export class OrdersService {
     }
   ): Promise<void> {
     const updateResult = await this.orderModel.updateOne(
-      { 
-        orderId, 
-        'sessionHistory.sessionId': sessionId 
+      {
+        orderId,
+        'sessionHistory.sessionId': sessionId
       },
       {
         $set: {
@@ -795,180 +795,180 @@ export class OrdersService {
   /**
  * Get astrologer's orders
  */
-async getAstrologerOrders(
-  astrologerId: string,
-  filters: {
-    page: number;
-    limit: number;
-    status?: string;
-    type?: string;
-  }
-): Promise<any> {
+  async getAstrologerOrders(
+    astrologerId: string,
+    filters: {
+      page: number;
+      limit: number;
+      status?: string;
+      type?: string;
+    }
+  ): Promise<any> {
 
-  let astrologerObjectId: Types.ObjectId;
-  
+    let astrologerObjectId: Types.ObjectId;
+
     astrologerObjectId = this.toObjectId(astrologerId);
 
-  const query: any = {
-    astrologerId: astrologerObjectId,
-    isDeleted: false,
-  };
+    const query: any = {
+      astrologerId: astrologerObjectId,
+      isDeleted: false,
+    };
 
-  if (filters.status) {
-    query.status = filters.status;
-  }
-
-  if (filters.type) {
-    query.type = filters.type;
-  }
-
-  const skip = (filters.page - 1) * filters.limit;
-
-  try {
-    const [orders, total] = await Promise.all([
-      this.orderModel
-        .find(query)
-        .populate('userId', 'name profileImage phoneNumber')
-        .select('-isDeleted')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(filters.limit)
-        .lean(),
-      this.orderModel.countDocuments(query),
-    ]);
-
-    // ✅ Log 7: Sample order data (first order only, for inspection)
-    if (orders.length > 0) {
-      this.logger.log('📝 [getAstrologerOrders] Sample order (first)');
-    } else {
-      // ✅ Log 8: Empty result investigation
-      this.logger.warn('⚠️  [getAstrologerOrders] No orders found - Running diagnostics...');
-      
-      // Check if astrologer has ANY orders (ignoring filters)
-      const anyOrders = await this.orderModel.countDocuments({
-        astrologerId: astrologerObjectId,
-      });
-      
-      // Check orders with this astrologer regardless of isDeleted
-      const anyOrdersIncludingDeleted = await this.orderModel.countDocuments({
-        astrologerId: astrologerObjectId,
-        isDeleted: false,
-      });
-
-      // Check all conversation-type orders for this astrologer
-      const conversationOrders = await this.orderModel.countDocuments({
-        astrologerId: astrologerObjectId,
-        type: 'conversation',
-        isDeleted: false,
-      });
-
-      this.logger.warn('🔬 [getAstrologerOrders] Diagnostic results', {
-        totalOrdersForAstrologer: anyOrders,
-        nonDeletedOrders: anyOrdersIncludingDeleted,
-        conversationTypeOrders: conversationOrders,
-        appliedFilters: {
-          status: filters.status || 'none',
-          type: filters.type || 'none',
-        },
-        possibleIssues: [
-          anyOrders === 0 ? '❌ No orders exist for this astrologer' : null,
-          anyOrders > 0 && anyOrdersIncludingDeleted === 0 ? '❌ All orders are marked as deleted' : null,
-          anyOrdersIncludingDeleted > 0 && conversationOrders === 0 ? '❌ Orders exist but none are type "conversation"' : null,
-          filters.status && anyOrdersIncludingDeleted > 0 ? `⚠️ Status filter "${filters.status}" might be too restrictive` : null,
-          filters.type && anyOrdersIncludingDeleted > 0 ? `⚠️ Type filter "${filters.type}" might be too restrictive` : null,
-        ].filter(Boolean),
-      });
+    if (filters.status) {
+      query.status = filters.status;
     }
 
-    // ✅ Log 9: Return data structure
-    this.logger.log('✅ [getAstrologerOrders] Returning response');
+    if (filters.type) {
+      query.type = filters.type;
+    }
+
+    const skip = (filters.page - 1) * filters.limit;
+
+    try {
+      const [orders, total] = await Promise.all([
+        this.orderModel
+          .find(query)
+          .populate('userId', 'name profileImage phoneNumber')
+          .select('-isDeleted')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(filters.limit)
+          .lean(),
+        this.orderModel.countDocuments(query),
+      ]);
+
+      // ✅ Log 7: Sample order data (first order only, for inspection)
+      if (orders.length > 0) {
+        this.logger.log('📝 [getAstrologerOrders] Sample order (first)');
+      } else {
+        // ✅ Log 8: Empty result investigation
+        this.logger.warn('⚠️  [getAstrologerOrders] No orders found - Running diagnostics...');
+
+        // Check if astrologer has ANY orders (ignoring filters)
+        const anyOrders = await this.orderModel.countDocuments({
+          astrologerId: astrologerObjectId,
+        });
+
+        // Check orders with this astrologer regardless of isDeleted
+        const anyOrdersIncludingDeleted = await this.orderModel.countDocuments({
+          astrologerId: astrologerObjectId,
+          isDeleted: false,
+        });
+
+        // Check all conversation-type orders for this astrologer
+        const conversationOrders = await this.orderModel.countDocuments({
+          astrologerId: astrologerObjectId,
+          type: 'conversation',
+          isDeleted: false,
+        });
+
+        this.logger.warn('🔬 [getAstrologerOrders] Diagnostic results', {
+          totalOrdersForAstrologer: anyOrders,
+          nonDeletedOrders: anyOrdersIncludingDeleted,
+          conversationTypeOrders: conversationOrders,
+          appliedFilters: {
+            status: filters.status || 'none',
+            type: filters.type || 'none',
+          },
+          possibleIssues: [
+            anyOrders === 0 ? '❌ No orders exist for this astrologer' : null,
+            anyOrders > 0 && anyOrdersIncludingDeleted === 0 ? '❌ All orders are marked as deleted' : null,
+            anyOrdersIncludingDeleted > 0 && conversationOrders === 0 ? '❌ Orders exist but none are type "conversation"' : null,
+            filters.status && anyOrdersIncludingDeleted > 0 ? `⚠️ Status filter "${filters.status}" might be too restrictive` : null,
+            filters.type && anyOrdersIncludingDeleted > 0 ? `⚠️ Type filter "${filters.type}" might be too restrictive` : null,
+          ].filter(Boolean),
+        });
+      }
+
+      // ✅ Log 9: Return data structure
+      this.logger.log('✅ [getAstrologerOrders] Returning response');
+
+      return {
+        success: true,
+        data: {
+          orders,
+          pagination: {
+            page: filters.page,
+            limit: filters.limit,
+            total,
+            pages: Math.ceil(total / filters.limit),
+          },
+        },
+      };
+    } catch (queryError) {
+      // ✅ Log 10: Query execution error
+      this.logger.error('❌ [getAstrologerOrders] Query execution failed', {
+        error: queryError.message,
+        stack: queryError.stack,
+        query: JSON.stringify(query, (key, value) =>
+          value instanceof Types.ObjectId ? value.toString() : value
+        ),
+      });
+      throw queryError;
+    }
+  }
+
+
+  /**
+   * Get astrologer order details
+   */
+  async getAstrologerOrderDetails(
+    orderId: string,
+    astrologerId: string
+  ): Promise<any> {
+    const order = await this.orderModel
+      .findOne({
+        orderId,
+        astrologerId: this.toObjectId(astrologerId),
+        isDeleted: false
+      })
+      .populate('userId', 'name profileImage profilePicture phoneNumber email privacy gender dateOfBirth timeOfBirth placeOfBirth')
+      .lean();
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
 
     return {
       success: true,
-      data: {
-        orders,
-        pagination: {
-          page: filters.page,
-          limit: filters.limit,
-          total,
-          pages: Math.ceil(total / filters.limit),
-        },
-      },
+      data: order
     };
-  } catch (queryError) {
-    // ✅ Log 10: Query execution error
-    this.logger.error('❌ [getAstrologerOrders] Query execution failed', {
-      error: queryError.message,
-      stack: queryError.stack,
-      query: JSON.stringify(query, (key, value) => 
-        value instanceof Types.ObjectId ? value.toString() : value
-      ),
-    });
-    throw queryError;
   }
-}
-
-
-/**
- * Get astrologer order details
- */
-async getAstrologerOrderDetails(
-  orderId: string,
-  astrologerId: string
-): Promise<any> {
-  const order = await this.orderModel
-    .findOne({
-      orderId,
-      astrologerId: this.toObjectId(astrologerId),
-      isDeleted: false
-    })
-    .populate('userId', 'name profileImage profilePicture phoneNumber email privacy gender dateOfBirth timeOfBirth placeOfBirth')
-    .lean();
-
-  if (!order) {
-    throw new NotFoundException('Order not found');
-  }
-
-  return {
-    success: true,
-    data: order
-  };
-}
 
   // ===== ADD REVIEW =====
   // ✅ REPLACE with simple tracking:
-async markReviewGiven(
-  orderId: string,
-  userId: string,
-  reviewId: string
-): Promise<any> {
-  const order = await this.orderModel.findOne({
-    orderId,
-    userId: this.toObjectId(userId),
-    isDeleted: false
-  });
+  async markReviewGiven(
+    orderId: string,
+    userId: string,
+    reviewId: string
+  ): Promise<any> {
+    const order = await this.orderModel.findOne({
+      orderId,
+      userId: this.toObjectId(userId),
+      isDeleted: false
+    });
 
-  if (!order) {
-    throw new NotFoundException('Order not found');
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.reviewGiven) {
+      throw new BadRequestException('Review already submitted for this order');
+    }
+
+    order.reviewGiven = true;
+    order.reviewGivenAt = new Date();
+    order.reviewId = this.toObjectId(reviewId);
+
+    await order.save();
+
+    this.logger.log(`Review tracked for order: ${orderId}`);
+
+    return {
+      success: true,
+      message: 'Review recorded successfully'
+    };
   }
-
-  if (order.reviewGiven) {
-    throw new BadRequestException('Review already submitted for this order');
-  }
-
-  order.reviewGiven = true;
-  order.reviewGivenAt = new Date();
-  order.reviewId = this.toObjectId(reviewId);
-
-  await order.save();
-
-  this.logger.log(`Review tracked for order: ${orderId}`);
-
-  return {
-    success: true,
-    message: 'Review recorded successfully'
-  };
-}
 
   // ===== REQUEST REFUND =====
   async requestRefund(

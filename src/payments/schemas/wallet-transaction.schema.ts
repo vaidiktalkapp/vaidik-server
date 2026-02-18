@@ -81,10 +81,10 @@ export class WalletTransaction {
   grossAmount?: number; // Total charged to user
 
   @Prop()
-  platformCommission?: number; // Platform's cut (40%)
+  platformCommission?: number; // Platform's cut (50%)
 
   @Prop()
-  netAmount?: number; // Astrologer's earning (60%)
+  netAmount?: number; // Astrologer's earning (50%)
 
   @Prop()
   paymentGateway?: string;

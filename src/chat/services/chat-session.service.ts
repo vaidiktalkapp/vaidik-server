@@ -36,7 +36,7 @@ export class ChatSessionService {
     private penaltyService: PenaltyService,
     private blockingService: AstrologerBlockingService,
     private userBlockingService: UserBlockingService,
-  ) {}
+  ) { }
 
   private generateSessionId(): string {
     return `CHAT_${Date.now()}_${Math.random().toString(36).substring(7).toUpperCase()}`;
@@ -63,7 +63,7 @@ export class ChatSessionService {
     }
     const isAstrologerBlocked = await this.userBlockingService.isAstrologerBlocked(this.toObjectId(sessionData.userId), sessionData.astrologerId);
     if (isAstrologerBlocked) {
-    throw new BadRequestException('You have blocked this astrologer. Unblock them to continue.');
+      throw new BadRequestException('You have blocked this astrologer. Unblock them to continue.');
     }
     const estimatedCost = sessionData.ratePerMinute * 5;
     const hasBalance = await this.walletService.checkBalance(
@@ -143,29 +143,29 @@ export class ChatSessionService {
     // ✅ Fire-and-forget notification to astrologer
     // ✅ Notify astrologer (incoming chat request) – type MUST be "chat_request"
     this.notificationService.sendNotification({
-    recipientId: sessionData.astrologerId,
-    recipientModel: 'Astrologer',
-    type: 'chat_request', // matches astrologer app getNotificationConfig
-    title: 'New chat request',
-    message: 'You have a new chat request from a user.',
-    data: {
-      type: 'chat_request',            // so app sees data.type correctly
-      mode: 'chat',
-      sessionId,
-      orderId: order.orderId,
-      conversationThreadId: order.conversationThreadId,
-      userId: sessionData.userId,
-      userName,
-      userProfilePic,
-      astrologerId: sessionData.astrologerId,
-      ratePerMinute: sessionData.ratePerMinute,
-      step: 'user_initiated',
-      fullScreen: 'true',
-    },
-    priority: 'high',
-  }).catch(err =>
-    this.logger.error(`Chat incoming notification error: ${err.message}`),
-  );
+      recipientId: sessionData.astrologerId,
+      recipientModel: 'Astrologer',
+      type: 'chat_request', // matches astrologer app getNotificationConfig
+      title: 'New chat request',
+      message: 'You have a new chat request from a user.',
+      data: {
+        type: 'chat_request',            // so app sees data.type correctly
+        mode: 'chat',
+        sessionId,
+        orderId: order.orderId,
+        conversationThreadId: order.conversationThreadId,
+        userId: sessionData.userId,
+        userName,
+        userProfilePic,
+        astrologerId: sessionData.astrologerId,
+        ratePerMinute: sessionData.ratePerMinute,
+        step: 'user_initiated',
+        fullScreen: 'true',
+      },
+      priority: 'high',
+    }).catch(err =>
+      this.logger.error(`Chat incoming notification error: ${err.message}`),
+    );
 
 
     this.logger.log(
@@ -215,25 +215,25 @@ export class ChatSessionService {
 
     // Notify user that astrologer accepted
     // Notify user that astrologer accepted – use "request_accepted"
-this.notificationService.sendNotification({
-  recipientId: session.userId.toString(),
-  recipientModel: 'User',
-  type: 'request_accepted',
-  title: 'Astrologer accepted your chat',
-  message: 'Tap to start your chat session.',
-  data: {
-    mode: 'chat',
-    sessionId: session.sessionId,
-    orderId: session.orderId,
-    astrologerId,
-    astrologerName,
-    astrologerImage,
-    ratePerMinute: session.ratePerMinute,
-  },
-  priority: 'high',
-}).catch(err =>
-  this.logger.error(`Chat accepted notification error: ${err.message}`),
-);
+    this.notificationService.sendNotification({
+      recipientId: session.userId.toString(),
+      recipientModel: 'User',
+      type: 'request_accepted',
+      title: 'Astrologer accepted your chat',
+      message: 'Tap to start your chat session.',
+      data: {
+        mode: 'chat',
+        sessionId: session.sessionId,
+        orderId: session.orderId,
+        astrologerId,
+        astrologerName,
+        astrologerImage,
+        ratePerMinute: session.ratePerMinute,
+      },
+      priority: 'high',
+    }).catch(err =>
+      this.logger.error(`Chat accepted notification error: ${err.message}`),
+    );
 
 
     this.logger.log(`Chat accepted: ${sessionId}`);
@@ -297,24 +297,24 @@ this.notificationService.sendNotification({
     );
 
     // Notify user that astrologer rejected – use "request_rejected"
-this.notificationService.sendNotification({
-  recipientId: session.userId.toString(),
-  recipientModel: 'User',
-  type: 'request_rejected',
-  title: 'Chat request rejected',
-  message: 'Astrologer rejected your chat request. No amount has been charged.',
-  data: {
-    type: 'request_rejected',
-    mode: 'chat',
-    sessionId: session.sessionId,
-    orderId: session.orderId,
-    astrologerId,
-    step: 'astrologer_rejected',
-  },
-  priority: 'medium',
-}).catch(err =>
-  this.logger.error(`Chat rejected notification error: ${err.message}`),
-);
+    this.notificationService.sendNotification({
+      recipientId: session.userId.toString(),
+      recipientModel: 'User',
+      type: 'request_rejected',
+      title: 'Chat request rejected',
+      message: 'Astrologer rejected your chat request. No amount has been charged.',
+      data: {
+        type: 'request_rejected',
+        mode: 'chat',
+        sessionId: session.sessionId,
+        orderId: session.orderId,
+        astrologerId,
+        step: 'astrologer_rejected',
+      },
+      priority: 'medium',
+    }).catch(err =>
+      this.logger.error(`Chat rejected notification error: ${err.message}`),
+    );
 
 
     this.logger.log(`Chat rejected: ${sessionId}`);
@@ -380,7 +380,7 @@ this.notificationService.sendNotification({
   /**
  * Get astrologer's chat sessions
  */
-async getAstrologerChatSessions(
+  async getAstrologerChatSessions(
     astrologerId: string,
     filters: {
       page: number;
@@ -425,10 +425,10 @@ async getAstrologerChatSessions(
     };
   }
 
-/**
- * Get astrologer chat session details
- */
-async getAstrologerChatSessionDetails(
+  /**
+   * Get astrologer chat session details
+   */
+  async getAstrologerChatSessionDetails(
     sessionId: string,
     astrologerId: string
   ): Promise<any> {
@@ -448,7 +448,7 @@ async getAstrologerChatSessionDetails(
     // ✅ FIXED: Return data directly to match Call structure
     return {
       success: true,
-      data: session 
+      data: session
     };
   }
 
@@ -456,155 +456,155 @@ async getAstrologerChatSessionDetails(
   /**
  * END SESSION
  */
-async endSession(sessionId: string, endedBy: string, reason: string): Promise<any> {
-  const session = await this.sessionModel.findOne({ sessionId });
+  async endSession(sessionId: string, endedBy: string, reason: string): Promise<any> {
+    const session = await this.sessionModel.findOne({ sessionId });
 
-  if (!session) {
-    throw new NotFoundException('Session not found');
-  }
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
 
-  if (session.status === 'ended') {
-    this.logger.warn(`⚠️ Session ${sessionId} already ended, returning existing data`);
+    if (session.status === 'ended') {
+      this.logger.warn(`⚠️ Session ${sessionId} already ended, returning existing data`);
+      return {
+        success: true,
+        message: 'Session already ended',
+        data: {
+          sessionId,
+          actualDuration: session.duration || 0,
+          billedMinutes: session.billedMinutes || 0,
+          chargeAmount: session.totalAmount || 0,
+          status: 'ended',
+        },
+      };
+    }
+
+    // Clear timeout
+    if (this.sessionTimers.has(sessionId)) {
+      clearTimeout(this.sessionTimers.get(sessionId)!);
+      this.sessionTimers.delete(sessionId);
+    }
+
+    this.clearUserJoinTimeout(sessionId);
+
+    let actualDurationSeconds = 0;
+
+    if (session.status === 'active' && session.startTime) {
+      const endTime = new Date();
+      actualDurationSeconds = Math.floor((endTime.getTime() - session.startTime.getTime()) / 1000);
+
+      // Cap to max duration if timeout
+      if (reason === 'timeout' && actualDurationSeconds > session.maxDurationSeconds) {
+        actualDurationSeconds = session.maxDurationSeconds;
+      }
+
+      session.duration = actualDurationSeconds;
+      session.billedMinutes = Math.ceil(actualDurationSeconds / 60);
+      session.totalAmount = session.billedMinutes * session.ratePerMinute;
+      session.platformCommission = (session.totalAmount * 50) / 100;
+      session.astrologerEarning = session.totalAmount - session.platformCommission;
+    }
+
+    // ✅ WALLET DEDUCTION (User) & ASTROLOGER CREDIT
+    if (actualDurationSeconds > 0 && session.totalAmount > 0) {
+      try {
+        // GET USER AND ASTROLOGER DETAILS
+        const [user, astrologer] = await Promise.all([
+          this.userModel.findById(session.userId).select('name').lean(),
+          this.astrologerModel.findById(session.astrologerId).select('name').lean(),
+        ]);
+
+        // ✅ USE UNIFIED PAYMENT METHOD
+        const paymentResult = await this.walletService.processSessionPayment({
+          userId: session.userId.toString(),
+          astrologerId: session.astrologerId.toString(),
+          amount: session.totalAmount,
+          orderId: session.orderId,
+          sessionId: session.sessionId,
+          sessionType: 'chat',
+          userName: user?.name || 'User',
+          astrologerName: astrologer?.name || 'Astrologer',
+          durationMinutes: session.billedMinutes,
+        });
+
+        if (!paymentResult.success) {
+          throw new Error(paymentResult.message || 'Payment failed');
+        }
+
+        this.logger.log(`✅ User wallet charged: User(${session.userId}) | Amount: ₹${session.totalAmount}`);
+        this.logger.log(`✅ Astrologer credited: ${session.astrologerId} | Amount: ₹${session.astrologerEarning}`);
+
+        // ✅ UPDATE ASTROLOGER EARNINGS (using EarningsService)
+        await this.earningsService.updateEarnings(
+          session.astrologerId.toString(),
+          session.totalAmount,
+          'chat',
+        );
+
+        session.isPaid = true;
+      } catch (error: any) {
+        this.logger.error(`❌ Payment processing failed for chat session ${sessionId}: ${error.message}`);
+        session.isPaid = false;
+      }
+    }
+
+    session.status = 'ended';
+    session.endTime = new Date();
+    session.endedBy = endedBy;
+    session.endReason = reason;
+    session.timerStatus = 'ended';
+
+    const now = new Date();
+    session.postSessionWindowEndsAt = new Date(now.getTime() + 20 * 1000);
+
+    await session.save();
+
+    // ONLY complete order if session was active, otherwise cancel
+    if (actualDurationSeconds > 0) {
+      await this.ordersService.completeSession(session.orderId, {
+        sessionId: sessionId,
+        sessionType: 'chat',
+        actualDurationSeconds: actualDurationSeconds,
+        billedMinutes: session.billedMinutes,
+        chargedAmount: session.totalAmount,
+        recordingUrl: undefined,
+        recordingS3Key: undefined,
+        recordingDuration: undefined,
+      });
+    } else {
+      this.logger.log(`Session ${sessionId} never started (0 duration), updating order with cancelled session`);
+
+      // ✅ FIX: For conversation threads, just update session history, don't cancel entire order
+      try {
+        await this.ordersService.completeSession(session.orderId, {
+          sessionId: sessionId,
+          sessionType: 'chat',
+          actualDurationSeconds: 0,
+          billedMinutes: 0,
+          chargedAmount: 0,
+          recordingUrl: undefined,
+          recordingS3Key: undefined,
+          recordingDuration: undefined,
+        });
+      } catch (error: any) {
+        this.logger.error(`Failed to update order session history: ${error.message}`);
+      }
+    }
+
+    this.logger.log(`Chat session ended: ${sessionId} | Duration: ${actualDurationSeconds}s`);
+
+    // ✅ CRITICAL FIX: ADD RETURN STATEMENT
     return {
       success: true,
-      message: 'Session already ended',
+      message: 'Chat session ended',
       data: {
         sessionId,
-        actualDuration: session.duration || 0,
-        billedMinutes: session.billedMinutes || 0,
-        chargeAmount: session.totalAmount || 0,
+        actualDuration: actualDurationSeconds,
+        billedMinutes: session.billedMinutes,
+        chargeAmount: session.totalAmount,
         status: 'ended',
       },
     };
   }
-
-  // Clear timeout
-  if (this.sessionTimers.has(sessionId)) {
-    clearTimeout(this.sessionTimers.get(sessionId)!);
-    this.sessionTimers.delete(sessionId);
-  }
-
-  this.clearUserJoinTimeout(sessionId);
-
-  let actualDurationSeconds = 0;
-
-  if (session.status === 'active' && session.startTime) {
-    const endTime = new Date();
-    actualDurationSeconds = Math.floor((endTime.getTime() - session.startTime.getTime()) / 1000);
-
-    // Cap to max duration if timeout
-    if (reason === 'timeout' && actualDurationSeconds > session.maxDurationSeconds) {
-      actualDurationSeconds = session.maxDurationSeconds;
-    }
-
-    session.duration = actualDurationSeconds;
-    session.billedMinutes = Math.ceil(actualDurationSeconds / 60);
-    session.totalAmount = session.billedMinutes * session.ratePerMinute;
-    session.platformCommission = (session.totalAmount * 40) / 100;
-    session.astrologerEarning = session.totalAmount - session.platformCommission;
-  }
-
-  // ✅ WALLET DEDUCTION (User) & ASTROLOGER CREDIT
-  if (actualDurationSeconds > 0 && session.totalAmount > 0) {
-    try {
-      // GET USER AND ASTROLOGER DETAILS
-      const [user, astrologer] = await Promise.all([
-        this.userModel.findById(session.userId).select('name').lean(),
-        this.astrologerModel.findById(session.astrologerId).select('name').lean(),
-      ]);
-
-      // ✅ USE UNIFIED PAYMENT METHOD
-      const paymentResult = await this.walletService.processSessionPayment({
-        userId: session.userId.toString(),
-        astrologerId: session.astrologerId.toString(),
-        amount: session.totalAmount,
-        orderId: session.orderId,
-        sessionId: session.sessionId,
-        sessionType: 'chat',
-        userName: user?.name || 'User',
-        astrologerName: astrologer?.name || 'Astrologer',
-        durationMinutes: session.billedMinutes,
-      });
-
-      if (!paymentResult.success) {
-        throw new Error(paymentResult.message || 'Payment failed');
-      }
-
-      this.logger.log(`✅ User wallet charged: User(${session.userId}) | Amount: ₹${session.totalAmount}`);
-      this.logger.log(`✅ Astrologer credited: ${session.astrologerId} | Amount: ₹${session.astrologerEarning}`);
-
-      // ✅ UPDATE ASTROLOGER EARNINGS (using EarningsService)
-      await this.earningsService.updateEarnings(
-        session.astrologerId.toString(),
-        session.totalAmount,
-        'chat',
-      );
-
-      session.isPaid = true;
-    } catch (error: any) {
-      this.logger.error(`❌ Payment processing failed for chat session ${sessionId}: ${error.message}`);
-      session.isPaid = false;
-    }
-  }
-
-  session.status = 'ended';
-  session.endTime = new Date();
-  session.endedBy = endedBy;
-  session.endReason = reason;
-  session.timerStatus = 'ended';
-
-  const now = new Date();
-  session.postSessionWindowEndsAt = new Date(now.getTime() + 20 * 1000);
-
-  await session.save();
-
-  // ONLY complete order if session was active, otherwise cancel
-if (actualDurationSeconds > 0) {
-  await this.ordersService.completeSession(session.orderId, {
-    sessionId: sessionId,
-    sessionType: 'chat',
-    actualDurationSeconds: actualDurationSeconds,
-    billedMinutes: session.billedMinutes,
-    chargedAmount: session.totalAmount,
-    recordingUrl: undefined,
-    recordingS3Key: undefined,
-    recordingDuration: undefined,
-  });
-} else {
-  this.logger.log(`Session ${sessionId} never started (0 duration), updating order with cancelled session`);
-  
-  // ✅ FIX: For conversation threads, just update session history, don't cancel entire order
-  try {
-    await this.ordersService.completeSession(session.orderId, {
-      sessionId: sessionId,
-      sessionType: 'chat',
-      actualDurationSeconds: 0,
-      billedMinutes: 0,
-      chargedAmount: 0,
-      recordingUrl: undefined,
-      recordingS3Key: undefined,
-      recordingDuration: undefined,
-    });
-  } catch (error: any) {
-    this.logger.error(`Failed to update order session history: ${error.message}`);
-  }
-}
-
-  this.logger.log(`Chat session ended: ${sessionId} | Duration: ${actualDurationSeconds}s`);
-
-  // ✅ CRITICAL FIX: ADD RETURN STATEMENT
-  return {
-    success: true,
-    message: 'Chat session ended',
-    data: {
-      sessionId,
-      actualDuration: actualDurationSeconds,
-      billedMinutes: session.billedMinutes,
-      chargeAmount: session.totalAmount,
-      status: 'ended',
-    },
-  };
-}
 
   // ===== REQUEST TIMEOUT (3 mins) =====
   private setRequestTimeout(sessionId: string, orderId: string, userId: string) {
@@ -665,7 +665,7 @@ if (actualDurationSeconds > 0) {
   }
 
   // ===== USER JOIN TIMEOUT (60 sec after astrologer accepts) =====
-private setUserJoinTimeout(sessionId: string) {
+  private setUserJoinTimeout(sessionId: string) {
     if (this.joinTimers.has(sessionId)) {
       clearTimeout(this.joinTimers.get(sessionId)!);
       this.joinTimers.delete(sessionId);
@@ -911,29 +911,29 @@ private setUserJoinTimeout(sessionId: string) {
     );
 
     // Notify astrologer – continuation is also an incoming chat request
-this.notificationService.sendNotification({
-  recipientId: data.astrologerId,
-  recipientModel: 'Astrologer',
-  type: 'chat_request',
-  title: 'Chat continued',
-  message: 'User wants to continue the conversation.',
-  data: {
-    type: 'chat_request',
-    mode: 'chat',
-    sessionId: newSessionId,
-    orderId: conversationThread.orderId,
-    conversationThreadId: conversationThread.conversationThreadId,
-    userId: data.userId,
-    previousSessionId: data.previousSessionId,
-    sessionNumber,
-    ratePerMinute: data.ratePerMinute,
-    step: 'chat_continued',
-    fullScreen: 'true',
-  },
-  priority: 'high',
-}).catch(err =>
-  this.logger.error(`Chat continue notification error: ${err.message}`),
-);
+    this.notificationService.sendNotification({
+      recipientId: data.astrologerId,
+      recipientModel: 'Astrologer',
+      type: 'chat_request',
+      title: 'Chat continued',
+      message: 'User wants to continue the conversation.',
+      data: {
+        type: 'chat_request',
+        mode: 'chat',
+        sessionId: newSessionId,
+        orderId: conversationThread.orderId,
+        conversationThreadId: conversationThread.conversationThreadId,
+        userId: data.userId,
+        previousSessionId: data.previousSessionId,
+        sessionNumber,
+        ratePerMinute: data.ratePerMinute,
+        step: 'chat_continued',
+        fullScreen: 'true',
+      },
+      priority: 'high',
+    }).catch(err =>
+      this.logger.error(`Chat continue notification error: ${err.message}`),
+    );
 
 
     return {
@@ -952,5 +952,5 @@ this.notificationService.sendNotification({
       }
     };
   }
-  
+
 }

@@ -11,10 +11,10 @@ export class EarningsService {
 
   constructor(
     @InjectModel(Astrologer.name) private astrologerModel: Model<AstrologerDocument>,
-  ) {}
+  ) { }
 
   /**
-   * ✅ FIXED: Update earnings correctly with 40% platform commission
+   * ✅ FIXED: Update earnings correctly with 50% platform commission
    * @param astrologerId - Astrologer ID
    * @param grossAmount - GROSS amount (user charged amount)
    * @param sessionType - 'call' or 'chat'
@@ -30,10 +30,10 @@ export class EarningsService {
       throw new NotFoundException('Astrologer not found');
     }
 
-    // ✅ Platform takes 40%, Astrologer gets 60%
-    const commissionRate = 40;
+    // ✅ Platform takes 50%, Astrologer gets 50%
+    const commissionRate = 50;
     const commission = (grossAmount * commissionRate) / 100;
-    const netEarnings = grossAmount - commission; // 60% to astrologer
+    const netEarnings = grossAmount - commission; // 50% to astrologer
 
     // Calculate minutes
     const durationMinutes = sessionType === 'call' ? Math.ceil(grossAmount / (astrologer.pricing.call || 1)) : 0;
@@ -41,8 +41,8 @@ export class EarningsService {
     await this.astrologerModel.findByIdAndUpdate(astrologerId, {
       $inc: {
         'earnings.totalEarned': grossAmount, // Total revenue generated
-        'earnings.platformCommission': commission, // Platform's 40%
-        'earnings.netEarnings': netEarnings, // Astrologer's 60%
+        'earnings.platformCommission': commission, // Platform's 50%
+        'earnings.netEarnings': netEarnings, // Astrologer's 50%
         'earnings.withdrawableAmount': netEarnings, // Available to withdraw
         'stats.totalEarnings': netEarnings, // Legacy field
         'stats.totalOrders': 1,
@@ -60,10 +60,10 @@ export class EarningsService {
     );
   }
 
- /**
-   * Record gift earnings
-   * ✅ FIXED: Now updates specific gift stats
-   */
+  /**
+    * Record gift earnings
+    * ✅ FIXED: Now updates specific gift stats
+    */
   async recordGiftEarning(astrologerId: string, amount: number): Promise<void> {
     const astrologer = await this.astrologerModel.findById(astrologerId);
 
@@ -71,7 +71,7 @@ export class EarningsService {
       throw new NotFoundException('Astrologer not found');
     }
 
-    const commissionRate = 40; // Or fetch from config
+    const commissionRate = 50; // Or fetch from config
     const commission = (amount * commissionRate) / 100;
     const astrologerEarning = amount - commission;
 
@@ -84,8 +84,8 @@ export class EarningsService {
         'earnings.withdrawableAmount': astrologerEarning,
 
         // 2. ✅ SPECIFIC GIFT TRACKING (The Missing Part)
-        'earnings.totalGiftEarnings': amount, 
-        
+        'earnings.totalGiftEarnings': amount,
+
         // 3. Stats
         'stats.totalEarnings': astrologerEarning,
         'stats.totalGifts': 1 // ✅ Increment gift count
@@ -117,7 +117,7 @@ export class EarningsService {
         totalEarned: astrologer.earnings.totalEarned || 0,
         totalGiftEarnings: astrologer.earnings.totalGiftEarnings || 0,
         platformCommission: astrologer.earnings.platformCommission || 0,
-        platformCommissionRate: 40,
+        platformCommissionRate: 50,
         netEarnings: astrologer.earnings.netEarnings || 0,
         totalPenalties: astrologer.earnings.totalPenalties || 0,
         withdrawableAmount: astrologer.earnings.withdrawableAmount || 0,

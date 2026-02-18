@@ -32,7 +32,7 @@ export class GiftService {
     @InjectModel(Astrologer.name) private readonly astrologerModel: Model<AstrologerDocument>,
     @InjectModel(StreamSession.name) private readonly streamModel: Model<StreamSessionDocument>,
     @InjectModel(WalletTransaction.name) private readonly transactionModel: Model<WalletTransactionDocument>,
-  ) {}
+  ) { }
 
   /**
    * ✅ FIXED: Send gift with unified transaction tracking
@@ -103,8 +103,8 @@ export class GiftService {
     const astrologerName = astrologer.name || 'Astrologer';
     const userName = user.name || 'User';
 
-    // ✅ Calculate commission (40% platform, 60% astrologer)
-    const platformCommission = (amount * 40) / 100;
+    // ✅ Calculate commission (50% platform, 50% astrologer)
+    const platformCommission = (amount * 50) / 100;
     const astrologerEarning = amount - platformCommission;
 
     // ✅ Generate descriptions
@@ -126,7 +126,7 @@ export class GiftService {
     try {
       // Deduct from user wallet
       const beforeBalance = user.wallet?.balance || 0;
-      
+
       // Apply debit (bonus first, then cash)
       const bonusAvailable = user.wallet?.bonusBalance || 0;
       const bonusDebited = Math.min(bonusAvailable, amount);

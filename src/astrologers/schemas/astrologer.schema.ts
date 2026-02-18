@@ -101,37 +101,37 @@ export class Astrologer {
   };
 
   @Prop({
-  type: {
-    average: { type: Number, default: 0 },
-    total: { type: Number, default: 0 },
-    approvedReviews: { type: Number, default: 0 }, // ✅ NEW: Only approved shown publicly
-    breakdown: {
-      5: { type: Number, default: 0 },
-      4: { type: Number, default: 0 },
-      3: { type: Number, default: 0 },
-      2: { type: Number, default: 0 },
-      1: { type: Number, default: 0 }
-    }
-  },
-  default: () => ({
-    average: 0,
-    total: 0,
-    approvedReviews: 0,
-    breakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+    type: {
+      average: { type: Number, default: 0 },
+      total: { type: Number, default: 0 },
+      approvedReviews: { type: Number, default: 0 }, // ✅ NEW: Only approved shown publicly
+      breakdown: {
+        5: { type: Number, default: 0 },
+        4: { type: Number, default: 0 },
+        3: { type: Number, default: 0 },
+        2: { type: Number, default: 0 },
+        1: { type: Number, default: 0 }
+      }
+    },
+    default: () => ({
+      average: 0,
+      total: 0,
+      approvedReviews: 0,
+      breakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+    })
   })
-})
-ratings: {
-  average: number;
-  total: number;
-  approvedReviews: number; // ✅ NEW
-  breakdown: {
-    5: number;
-    4: number;
-    3: number;
-    2: number;
-    1: number;
+  ratings: {
+    average: number;
+    total: number;
+    approvedReviews: number; // ✅ NEW
+    breakdown: {
+      5: number;
+      4: number;
+      3: number;
+      2: number;
+      1: number;
+    };
   };
-};
 
 
   // Stats
@@ -169,10 +169,10 @@ ratings: {
   // ✅ UPDATED: Earnings with proper calculation fields
   @Prop({
     type: {
-      totalEarned: { type: Number, default: 0 },   
+      totalEarned: { type: Number, default: 0 },
       totalGiftEarnings: { type: Number, default: 0 },       // Total revenue generated
       platformCommission: { type: Number, default: 0 },     // Platform's cut (₹)
-      platformCommissionRate: { type: Number, default: 40 }, // Commission rate (%)
+      platformCommissionRate: { type: Number, default: 50 }, // Commission rate (%)
       netEarnings: { type: Number, default: 0 },           // totalEarned - platformCommission
       totalPenalties: { type: Number, default: 0 },        // ✅ Total penalties/fines
       withdrawableAmount: { type: Number, default: 0 },    // Available to withdraw
@@ -184,7 +184,7 @@ ratings: {
       totalEarned: 0,
       totalGiftEarnings: 0,
       platformCommission: 0,
-      platformCommissionRate: 40,
+      platformCommissionRate: 50,
       netEarnings: 0,
       totalPenalties: 0,
       withdrawableAmount: 0,
@@ -207,14 +207,14 @@ ratings: {
   };
 
   @Prop({ required: false, default: 'India' })
-  country: string; 
+  country: string;
 
   // ✅ NEW: Penalties/Fines tracking
   @Prop({
     type: [{
       penaltyId: { type: String, required: true },
-      type: { 
-        type: String, 
+      type: {
+        type: String,
         enum: [
           'late_response',           // Late to respond to call/chat
           'missed_appointment',      // Missed scheduled session
@@ -226,15 +226,15 @@ ratings: {
           'inappropriate_behavior',  // Misconduct
           'other'
         ],
-        required: true 
+        required: true
       },
       amount: { type: Number, required: true },
       reason: { type: String, required: true },
       description: String,
       orderId: String,                    // Related order if any
       userId: { type: Types.ObjectId, ref: 'User' }, // User who reported
-      status: { 
-        type: String, 
+      status: {
+        type: String,
         enum: ['pending', 'applied', 'waived', 'disputed'],
         default: 'applied'
       },
@@ -278,9 +278,9 @@ ratings: {
       busyUntil: Date,
       lastActive: Date,
       workingHours: [{
-        day: { 
-          type: String, 
-          enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] 
+        day: {
+          type: String,
+          enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
         },
         slots: [{
           start: String,
@@ -355,7 +355,7 @@ ratings: {
     blockedAt: Date;
   }[];
 
-@Prop({
+  @Prop({
     type: [
       {
         fcmToken: { type: String, required: true },
@@ -378,7 +378,7 @@ ratings: {
   }[];
 
   @Prop({ default: true })
-singleDeviceMode: boolean;
+  singleDeviceMode: boolean;
 
   @Prop({ default: Date.now })
   createdAt: Date;
