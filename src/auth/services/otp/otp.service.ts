@@ -24,7 +24,7 @@ export class OtpService {
   private readonly VEPAAR_API_URL = 'https://api.vepaar.com/api/v1/send-otp';
 
   // 🧪 Test ACCOUNT CREDENTIALS
-  private readonly DEMO_PHONE = '9873211086';
+  private readonly DEMO_PHONES = ['9873211086', '7878787878'];
   private readonly DEMO_OTP = '987654';
 
   constructor(
@@ -67,12 +67,12 @@ export class OtpService {
   ): Promise<{ success: boolean; message: string; otp?: string }> {
     try {
       // 🧪 1. CHECK FOR DEMO ACCOUNT BYPASS
-      if (phoneNumber === this.DEMO_PHONE) {
+      if (this.DEMO_PHONES.includes(phoneNumber)) {
         this.logger.log(`🧪 Demo Account Login Attempt: +${countryCode}${phoneNumber}`);
         return {
           success: true,
           message: 'OTP sent successfully (Demo Account)',
-          // In dev mode, we can return it, but the fixed OTP is always 123456
+          // In dev mode, we can return it, but the fixed OTP is always 987654
           ...(this.configService.get('NODE_ENV') === 'development' && { otp: this.DEMO_OTP })
         };
       }
@@ -198,13 +198,13 @@ export class OtpService {
       this.logger.log(`🔍 Verifying OTP for +${countryCode}${phoneNumber}: ${enteredOTP}`);
 
       // 🧪 2. CHECK FOR DEMO ACCOUNT BYPASS
-      if (phoneNumber === this.DEMO_PHONE) {
+      if (this.DEMO_PHONES.includes(phoneNumber)) {
         if (enteredOTP === this.DEMO_OTP) {
           this.logger.log(`✅ Demo OTP verified successfully for +${countryCode}${phoneNumber}`);
           return true;
         } else {
           this.logger.warn(`❌ Invalid Demo OTP attempt for +${countryCode}${phoneNumber}`);
-          throw new BadRequestException('Invalid Demo OTP. Please use 123456.');
+          throw new BadRequestException(`Invalid Demo OTP. Please use ${this.DEMO_OTP}.`);
         }
       }
 
