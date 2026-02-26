@@ -24,6 +24,7 @@ import { MonitoringModule } from './features/monitoring/monitoring.module';
 import { AdminReportsModule } from './features/reports/admin-reports.module';
 import { ReviewModerationModule } from './features/review-moderation/review-moderation.module';
 
+
 // Admin Management Controller (for managing admins)
 import { AdminManagementController } from './features/admin-management/controllers/admin-management.controller';
 import { AdminManagementService } from './features/admin-management/services/admin-management.service';
@@ -31,13 +32,13 @@ import { AdminManagementService } from './features/admin-management/services/adm
 @Module({
   imports: [
     ConfigModule,
-    
+
     // Core schemas available globally within admin module
     MongooseModule.forFeature([
       { name: Admin.name, schema: AdminSchema },
       { name: AdminRole.name, schema: AdminRoleSchema },
     ]),
-    
+
     // Feature modules
     AuthModule,
     ActivityLogsModule,
@@ -68,4 +69,4 @@ import { AdminManagementService } from './features/admin-management/services/adm
     PermissionsGuard,
   ],
 })
-export class AdminModule {}
+export class AdminModule { }

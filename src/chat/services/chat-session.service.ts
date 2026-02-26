@@ -238,6 +238,11 @@ export class ChatSessionService {
 
     this.logger.log(`Chat accepted: ${sessionId}`);
 
+    if (this.chatGateway && typeof this.chatGateway.notifyUserOfAcceptance === 'function') {
+      this.chatGateway.notifyUserOfAcceptance(sessionId, astrologerId)
+        .catch(err => this.logger.error(`Failed to emit chat_accepted socket: ${err.message}`));
+    }
+
     return {
       success: true,
       message: 'Chat accepted',
@@ -276,25 +281,29 @@ export class ChatSessionService {
       await this.penaltyService.applyPenalty({
         astrologerId,
         type: 'missed_appointment',
-        amount: 50, // ₹50 penalty for rejecting chat
+        amount: 20, // ₹20 penalty for rejecting chat
         reason: 'Chat request rejected',
         description: 'Rejected chat request from user',
         orderId: session.orderId,
         userId: session.userId.toString(),
         appliedBy: 'system',
       });
-      this.logger.log(`✅ Penalty applied: ₹50 to astrologer ${astrologerId} for rejecting chat`);
+      this.logger.log(`✅ Penalty applied: ₹20 to astrologer ${astrologerId} for rejecting chat`);
     } catch (error: any) {
       this.logger.error(`❌ Failed to apply penalty: ${error.message}`);
     }
 
     // Update order (no wallet logic here)
-    await this.ordersService.cancelOrder(
-      session.orderId,
-      session.userId.toString(),
-      reason,
-      'astrologer'
-    );
+    try {
+      await this.ordersService.cancelOrder(
+        session.orderId,
+        session.userId.toString(),
+        reason,
+        'astrologer'
+      );
+    } catch (e: any) {
+      this.logger.error(`❌ Failed to cancel order during chat rejection: ${e.message}`);
+    }
 
     // Notify user that astrologer rejected – use "request_rejected"
     this.notificationService.sendNotification({
@@ -318,6 +327,11 @@ export class ChatSessionService {
 
 
     this.logger.log(`Chat rejected: ${sessionId}`);
+
+    if (this.chatGateway && typeof this.chatGateway.notifyUserOfRejection === 'function') {
+      this.chatGateway.notifyUserOfRejection(sessionId, astrologerId, reason)
+        .catch(err => this.logger.error(`Failed to emit chat_rejected socket: ${err.message}`));
+    }
 
     return {
       success: true,
@@ -625,14 +639,14 @@ export class ChatSessionService {
           await this.penaltyService.applyPenalty({
             astrologerId: session.astrologerId.toString(),
             type: 'late_response',
-            amount: 100, // ₹100 penalty for not responding
+            amount: 20, // ₹20 penalty for not responding
             reason: 'No response to chat request',
             description: 'Did not respond to chat request within 3 minutes',
             orderId: session.orderId,
             userId: session.userId.toString(),
             appliedBy: 'system',
           });
-          this.logger.log(`✅ Penalty applied: ₹100 to astrologer for no response`);
+          this.logger.log(`✅ Penalty applied: ₹20 to astrologer for no response`);
         } catch (error: any) {
           this.logger.error(`❌ Failed to apply penalty: ${error.message}`);
         }

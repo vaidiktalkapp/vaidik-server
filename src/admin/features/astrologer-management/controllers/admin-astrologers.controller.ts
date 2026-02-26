@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
   ValidationPipe,
   Delete,
+  Post,
 } from '@nestjs/common';
 
 import { AdminAuthGuard } from '../../../core/guards/admin-auth.guard';
@@ -21,12 +22,13 @@ import { Permissions } from '../../../core/config/permissions.config';
 
 import { AdminAstrologersService } from '../services/admin-astrologers.service';
 import { UpdatePricingDto } from '../dto/update-pricing.dto';
+
 import { AstrologerQueryDto } from '../dto/astrologer-query.dto';
 
 @Controller('admin/astrologers')
 @UseGuards(AdminAuthGuard, PermissionsGuard)
 export class AdminAstrologersController {
-  constructor(private adminAstrologersService: AdminAstrologersService) {}
+  constructor(private adminAstrologersService: AdminAstrologersService) { }
 
   /**
    * GET /admin/astrologers
@@ -187,4 +189,5 @@ export class AdminAstrologersController {
   ) {
     return this.adminAstrologersService.deleteAstrologer(astrologerId, admin._id, reason);
   }
+
 }

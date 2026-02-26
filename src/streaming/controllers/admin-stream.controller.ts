@@ -24,7 +24,7 @@ export class AdminStreamController {
     private streamSessionService: StreamSessionService,
     private streamAnalyticsService: StreamAnalyticsService,
     private streamAgoraService: StreamAgoraService,
-  ) {}
+  ) { }
 
   /**
    * Get all streams (with filters)
@@ -99,9 +99,9 @@ export class AdminStreamController {
   }
 
   @Get(':streamId/viewer-token')
-async getViewerToken(@Param('streamId') streamId: string) {
-  return this.streamAgoraService.generateViewerTokenByStreamId(streamId); // ✅ USE NEW METHOD
-}
+  async getViewerToken(@Param('streamId') streamId: string) {
+    return this.streamAgoraService.generateViewerTokenByStreamId(streamId); // ✅ USE NEW METHOD
+  }
 
 
   /**
@@ -113,12 +113,12 @@ async getViewerToken(@Param('streamId') streamId: string) {
     // Fetch stream to get the hostId required by the service
     const stream = await this.streamSessionService.getStreamById(streamId);
     if (!stream) throw new NotFoundException('Stream not found');
-    
+
     // Use the existing service method. The second param is technically 'hostId' or 'userId' 
     // for billing/logic, using hostId ensures the host side logic triggers correctly.
     return this.streamSessionService.endCurrentCall(streamId, stream.hostId.toString());
   }
-@Post(':streamId/recording/start')
+  @Post(':streamId/recording/start')
   async startRecording(@Param('streamId') streamId: string) {
     return this.streamSessionService.startRecording(streamId);
   }
@@ -127,12 +127,12 @@ async getViewerToken(@Param('streamId') streamId: string) {
   async stopRecording(@Param('streamId') streamId: string) {
     return this.streamSessionService.stopRecording(streamId);
   }
-  
+
   /**
    * Get stream details
    */
   @Get(':streamId')
-  async getStreamDetails(@Param('streamId') streamId: string) {
+  async getStreamDetails(@Param('streamId') streamId: string): Promise<any> {
     return this.streamSessionService.getStreamDetailsAdmin(streamId);
   }
 }

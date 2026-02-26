@@ -85,8 +85,9 @@ export class ChatSession {
   @Prop()
   paidAt?: Date;
 
+  // ===== FREE CHAT =====
   // ===== TIMER STATE =====
-  @Prop({ 
+  @Prop({
     enum: ['not_started', 'running', 'paused', 'ended'],
     default: 'not_started'
   })
@@ -177,7 +178,7 @@ export class ChatSession {
   endReason?: string;
 
   // ===== METADATA =====
-  @Prop({ default: Date.now})
+  @Prop({ default: Date.now })
   createdAt: Date;
 }
 

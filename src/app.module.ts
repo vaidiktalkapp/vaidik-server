@@ -34,7 +34,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { SupportModule } from './support/support.module';
 import { AdminModule } from './admin/admin.module';
 import { ModerationModule } from './moderation/moderation.module';
-
 @Module({
   imports: [
     // Global configuration
@@ -55,7 +54,7 @@ import { ModerationModule } from './moderation/moderation.module';
       inject: [ConfigService],
     }),
 
-     // FIXED Redis cache connection
+    // FIXED Redis cache connection
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],
@@ -125,4 +124,4 @@ import { ModerationModule } from './moderation/moderation.module';
     AppService,
   ],
 })
-export class AppModule {}
+export class AppModule { }

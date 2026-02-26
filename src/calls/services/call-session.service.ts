@@ -233,6 +233,11 @@ export class CallSessionService {
       priority: 'urgent',
     }).catch(err => this.logger.error(`Call accepted notification error: ${err.message}`));
 
+    if (this.callGateway && typeof this.callGateway.notifyUserOfAcceptance === 'function') {
+      this.callGateway.notifyUserOfAcceptance(sessionId, astrologerId)
+        .catch(err => this.logger.error(`Failed to emit call_accepted socket: ${err.message}`));
+    }
+
     return {
       success: true,
       message: 'Call accepted',
@@ -285,7 +290,7 @@ export class CallSessionService {
       await this.penaltyService.applyPenalty({
         astrologerId,
         type: 'missed_appointment',
-        amount: 50,
+        amount: 30, // ₹30 penalty for rejecting call
         reason: 'Call request rejected',
         description: `Rejected ${session.callType} call request`,
         orderId: session.orderId,
@@ -296,7 +301,11 @@ export class CallSessionService {
       this.logger.error(`❌ Failed to apply penalty: ${error.message}`);
     }
 
-    await this.ordersService.cancelOrder(session.orderId, session.userId.toString(), reason, 'astrologer');
+    try {
+      await this.ordersService.cancelOrder(session.orderId, session.userId.toString(), reason, 'astrologer');
+    } catch (e: any) {
+      this.logger.error(`❌ Failed to cancel order during call rejection: ${e.message}`);
+    }
 
     // Send Push Notification
     this.notificationService.sendNotification({
@@ -312,6 +321,11 @@ export class CallSessionService {
       },
       priority: 'high',
     }).catch(err => this.logger.error(`Call rejected notification error: ${err.message}`));
+
+    if (this.callGateway && typeof this.callGateway.notifyUserOfRejection === 'function') {
+      this.callGateway.notifyUserOfRejection(sessionId, astrologerId, reason)
+        .catch(err => this.logger.error(`Failed to emit call_rejected socket: ${err.message}`));
+    }
 
     return { success: true, message: 'Call rejected' };
   }
@@ -597,7 +611,7 @@ export class CallSessionService {
           await this.penaltyService.applyPenalty({
             astrologerId: session.astrologerId.toString(),
             type: 'late_response',
-            amount: 100,
+            amount: 30, // ₹30 penalty for not responding to call
             reason: 'No response to call request',
             description: `Did not respond to ${session.callType} call request within 3 minutes`,
             orderId: session.orderId,
