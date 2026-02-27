@@ -14,6 +14,7 @@ import { PenaltyService } from '../../astrologers/services/penalty.service';
 import { CallGateway } from '../gateways/calls.gateway';
 import { AstrologerBlockingService } from '../../astrologers/services/astrologer-blocking.service';
 import { UserBlockingService } from 'src/users/services/user-blocking.service';
+import { AvailabilityService } from '../../astrologers/services/availability.service';
 
 @Injectable()
 export class CallSessionService {
@@ -36,6 +37,7 @@ export class CallSessionService {
     private penaltyService: PenaltyService,
     private blockingService: AstrologerBlockingService,
     private userBlockingService: UserBlockingService,
+    private availabilityService: AvailabilityService,
   ) { }
 
   private generateSessionId(): string {
@@ -61,6 +63,22 @@ export class CallSessionService {
     const isBlocked = await this.blockingService.isUserBlocked(sessionData.astrologerId, sessionData.userId);
     if (isBlocked) {
       throw new BadRequestException('You have been blocked by this astrologer.');
+    }
+
+    // ✅ PREVENT DOUBLE CALLS: Check if user already has an active/pending session
+    const existingSession = await this.sessionModel.findOne({
+      userId: this.toObjectId(sessionData.userId),
+      status: { $in: ['initiated', 'waiting', 'waiting_in_queue', 'active'] }
+    });
+
+    if (existingSession) {
+      throw new BadRequestException('You already have an active call request. Please wait or end it before starting a new one.');
+    }
+
+    // ✅ PREVENT DOUBLE BOOKING: Strict check against astrologer's Real-Time Availability
+    const isAvailable = await this.availabilityService.isAvailableNow(sessionData.astrologerId);
+    if (!isAvailable) {
+      throw new BadRequestException('Astrologer is currently busy or offline. Please try again later.');
     }
     const isAstrologerBlocked = await this.userBlockingService.isAstrologerBlocked(this.toObjectId(sessionData.userId), sessionData.astrologerId);
     if (isAstrologerBlocked) {
@@ -204,6 +222,9 @@ export class CallSessionService {
     session.acceptedAt = new Date();
     await session.save();
 
+    // ✅ Temporarily mark as busy for 2 minutes while ringing (user joins in next 60s)
+    await this.availabilityService.setBusy(astrologerId, new Date(Date.now() + 2 * 60 * 1000));
+
     this.setUserJoinTimeout(sessionId);
 
     const userNotifType = session.callType === 'video' ? 'call_video' : 'call_audio';
@@ -284,6 +305,9 @@ export class CallSessionService {
     session.endReason = 'astrologer_rejected';
     session.endTime = new Date();
     await session.save();
+
+    // ✅ Clear busy status since the call was rejected
+    await this.availabilityService.setAvailable(astrologerId);
 
     // Apply Penalty Logic
     try {
@@ -371,6 +395,10 @@ export class CallSessionService {
     session.timerMetrics.elapsedSeconds = 0;
     session.timerMetrics.remainingSeconds = maxDurationSeconds;
     session.timerMetrics.lastUpdatedAt = new Date();
+
+    // ✅ Set accurate Wait Time for the User App
+    const busyUntil = new Date(Date.now() + maxDurationSeconds * 1000);
+    await this.availabilityService.setBusy(session.astrologerId.toString(), busyUntil);
 
     if (session.userStatus) {
       session.userStatus.isOnline = true;
@@ -516,6 +544,9 @@ export class CallSessionService {
 
     await session.save();
 
+    // ✅ Clear busy status since the call ended
+    await this.availabilityService.setAvailable(session.astrologerId.toString());
+
     // Async Order Completion
     this.ordersService.completeSession(session.orderId, {
       sessionId: sessionId,
@@ -606,6 +637,9 @@ export class CallSessionService {
         session.endReason = 'astrologer_no_response';
         session.endTime = new Date();
         await session.save();
+
+        // ✅ Clear busy status since the call was cancelled by timeout
+        await this.availabilityService.setAvailable(session.astrologerId.toString());
 
         try {
           await this.penaltyService.applyPenalty({
@@ -709,6 +743,10 @@ export class CallSessionService {
     session.endedBy = cancelledBy;
     session.endTime = new Date();
     await session.save();
+
+    // ✅ Clear busy status since the call was cancelled by user
+    await this.availabilityService.setAvailable(session.astrologerId.toString());
+
     return { success: true, message: 'Call cancelled' };
   }
 

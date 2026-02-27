@@ -15,6 +15,7 @@ import { PenaltyService } from '../../astrologers/services/penalty.service';
 import { ChatGateway } from '../gateways/chat.gateway';
 import { AstrologerBlockingService } from '../../astrologers/services/astrologer-blocking.service';
 import { UserBlockingService } from 'src/users/services/user-blocking.service';
+import { AvailabilityService } from '../../astrologers/services/availability.service';
 
 @Injectable()
 export class ChatSessionService {
@@ -36,6 +37,7 @@ export class ChatSessionService {
     private penaltyService: PenaltyService,
     private blockingService: AstrologerBlockingService,
     private userBlockingService: UserBlockingService,
+    private availabilityService: AvailabilityService,
   ) { }
 
   private generateSessionId(): string {
@@ -60,6 +62,22 @@ export class ChatSessionService {
     const isBlocked = await this.blockingService.isUserBlocked(sessionData.astrologerId, sessionData.userId);
     if (isBlocked) {
       throw new BadRequestException('You have been blocked by this astrologer.');
+    }
+
+    // ✅ PREVENT DOUBLE CHATS: Check if user already has an active/pending session
+    const existingSession = await this.sessionModel.findOne({
+      userId: this.toObjectId(sessionData.userId),
+      status: { $in: ['initiated', 'waiting', 'waiting_in_queue', 'active'] }
+    });
+
+    if (existingSession) {
+      throw new BadRequestException('You already have an active chat request. Please wait or end it before starting a new one.');
+    }
+
+    // ✅ PREVENT DOUBLE BOOKING: Strict check against astrologer's Real-Time Availability
+    const isAvailable = await this.availabilityService.isAvailableNow(sessionData.astrologerId);
+    if (!isAvailable) {
+      throw new BadRequestException('Astrologer is currently busy or offline. Please try again later.');
     }
     const isAstrologerBlocked = await this.userBlockingService.isAstrologerBlocked(this.toObjectId(sessionData.userId), sessionData.astrologerId);
     if (isAstrologerBlocked) {
@@ -206,6 +224,9 @@ export class ChatSessionService {
     session.acceptedAt = new Date();
     await session.save();
 
+    // ✅ Temporarily mark as busy for 2 minutes while user joins
+    await this.availabilityService.setBusy(astrologerId, new Date(Date.now() + 2 * 60 * 1000));
+
     // 🆕 Start 60s join timeout for user
     this.setUserJoinTimeout(sessionId);
 
@@ -275,6 +296,9 @@ export class ChatSessionService {
     session.endReason = 'astrologer_rejected';
     session.endTime = new Date();
     await session.save();
+
+    // ✅ Clear busy status since the chat was rejected
+    await this.availabilityService.setAvailable(astrologerId);
 
     // ✅ NEW: Apply penalty for rejection
     try {
@@ -369,6 +393,10 @@ export class ChatSessionService {
     session.timerMetrics.elapsedSeconds = 0;
     session.timerMetrics.remainingSeconds = maxDurationSeconds;
     session.timerMetrics.lastUpdatedAt = new Date();
+
+    // ✅ Set accurate Wait Time for the User App
+    const busyUntil = new Date(Date.now() + maxDurationSeconds * 1000);
+    await this.availabilityService.setBusy(session.astrologerId.toString(), busyUntil);
 
     await session.save();
     this.clearUserJoinTimeout(sessionId);
@@ -572,6 +600,9 @@ export class ChatSessionService {
 
     await session.save();
 
+    // ✅ Clear busy status since the chat ended
+    await this.availabilityService.setAvailable(session.astrologerId.toString());
+
     // ONLY complete order if session was active, otherwise cancel
     if (actualDurationSeconds > 0) {
       await this.ordersService.completeSession(session.orderId, {
@@ -633,6 +664,9 @@ export class ChatSessionService {
         session.endReason = 'astrologer_no_response';
         session.endTime = new Date();
         await session.save();
+
+        // ✅ Clear busy status since the chat was cancelled by timeout
+        await this.availabilityService.setAvailable(session.astrologerId.toString());
 
         // ✅ NEW: Apply penalty for no response
         try {
@@ -698,6 +732,9 @@ export class ChatSessionService {
           session.endTime = new Date();
           session.endedBy = 'system';
           await session.save();
+
+          // ✅ Clear busy status since the user did not join
+          await this.availabilityService.setAvailable(session.astrologerId.toString());
 
           // Update order to completed with 0 duration
           await this.ordersService.completeSession(session.orderId, {
