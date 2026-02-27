@@ -267,7 +267,11 @@ export class ChatSessionService {
     return {
       success: true,
       message: 'Chat accepted',
-      status: 'waiting'
+      status: 'waiting',
+      data: {
+        orderId: session.orderId,
+        userId: session.userId,
+      }
     };
   }
 

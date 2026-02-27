@@ -1162,6 +1162,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (userSocketId) {
         this.server.to(userSocketId).emit('chat_accepted', {
           sessionId,
+          orderId: session.orderId,
           astrologerId,
           timestamp: new Date(),
           ...payload
