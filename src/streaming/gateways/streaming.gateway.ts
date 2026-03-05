@@ -428,7 +428,7 @@ export class StreamGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.log('📝 Found caller socket:', callerSocketId);
 
       // Default values mapping
-      let maxDuration = 600;
+      let maxDuration = data['maxDuration'] || 3600;
       let finalUid = data.callerAgoraUid;
 
       if (callerSocketId) {
@@ -446,7 +446,7 @@ export class StreamGateway implements OnGatewayConnection, OnGatewayDisconnect {
           uid: data.callerAgoraUid, // Usually same as callerAgoraUid
           appId: data['appId'] || process.env.AGORA_APP_ID || '203397a168f8469bb8e672cd15eb3eb6',
           hostAgoraUid: data['hostAgoraUid'],
-          maxDuration: data['maxDuration'] || 600,
+          maxDuration: maxDuration,
         };
 
         console.log('====================================');

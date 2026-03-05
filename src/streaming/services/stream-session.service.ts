@@ -134,7 +134,7 @@ export class StreamSessionService {
         videoCallPrice: settings.videoCallPrice ?? 100,
         allowPublicCalls: settings.allowPublicCalls ?? true,
         allowPrivateCalls: settings.allowPrivateCalls ?? true,
-        maxCallDuration: settings.maxCallDuration ?? 600,
+        maxCallDuration: settings.maxCallDuration ?? 3600,
       },
       callWaitlist: [],
       createdAt: new Date(),
