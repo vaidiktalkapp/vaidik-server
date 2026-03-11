@@ -87,17 +87,22 @@ export class AvailabilityService {
     if (av.isLive) return 'live';
 
     // 2. Reachability check FIRST
-    const isManuallyOnline = av.isOnline;
-    const isScheduled = this.isWithinWorkingHours(av.workingHours);
+    const isManuallyOnline = av.isOnline === true; // explicit toggle
+    const isScheduled = this.isWithinWorkingHours(av.workingHours); // weekly schedule
     const isReachable = isManuallyOnline || isScheduled;
 
-    // 3. If not reachable, always offline — ignore isAvailable / busyUntil flags
+    // 3. Not reachable at all — always offline (ignore any stale flags)
     if (!isReachable) return 'offline';
 
-    // 4. Busy only applies to reachable astrologers
-    const isBusyManual = av.isAvailable === false;
+    // 4. Busy via timed session (applies to both manual and scheduled astrologers)
     const isBusyTimer = av.busyUntil && new Date(av.busyUntil) > new Date();
-    if (isBusyManual || isBusyTimer) return 'busy';
+    if (isBusyTimer) return 'busy';
+
+    // 5. Busy via manual flag ONLY for astrologers who explicitly turned on their toggle.
+    //    If the astrologer is only "reachable" via schedule but isOnline is false,
+    //    we cannot trust isAvailable=false (it may be stale from a previous session).
+    const isBusyManual = isManuallyOnline && av.isAvailable === false;
+    if (isBusyManual) return 'busy';
 
     return 'online';
   }
@@ -123,6 +128,11 @@ export class AvailabilityService {
 
     if (updateDto.isOnline !== undefined) {
       updateFields['availability.isOnline'] = updateDto.isOnline;
+      // When going offline, clear stale busy flags so they don't linger
+      if (updateDto.isOnline === false) {
+        updateFields['availability.isAvailable'] = true;
+        updateFields['availability.busyUntil'] = null;
+      }
     }
     if (updateDto.isAvailable !== undefined) {
       updateFields['availability.isAvailable'] = updateDto.isAvailable;
