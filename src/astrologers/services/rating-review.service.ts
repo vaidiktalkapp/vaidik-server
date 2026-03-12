@@ -52,7 +52,7 @@ export class RatingReviewService {
     });
     
     if (!order) {
-      console.error(`❌ [RatingReviewService] Order not found: orderId=${orderId}, userId=${userId}`);
+      console.error(`❌ [RatingReviewService] NotFound (404): Order or User mismatch. Query: { orderId: "${orderId}", userId: "${userId}" }`);
       throw new NotFoundException('Order not found');
     }
 
@@ -72,6 +72,7 @@ export class RatingReviewService {
 
     // Check if already reviewed
     if (order.reviewGiven) {
+      console.error(`❌ [RatingReviewService] BadRequest (400): Order ${orderId} already marked reviewGiven=true`);
       throw new BadRequestException('This session has already been reviewed');
     }
 
