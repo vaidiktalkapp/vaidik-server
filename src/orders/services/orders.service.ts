@@ -408,8 +408,12 @@ export class OrdersService {
           sentAt: conv.lastMessage.sentAt,
           isRead: conv.lastMessage.isRead
         } : null,
+        totalMessages: conv.messageCount || 0,
+        totalCallSessions: conv.totalCallSessions || 0,
+        totalSpent: conv.totalAmount || 0,
+        totalDurationSeconds: conv.totalUsedDurationSeconds || 0,
         category, // 'chat', 'call', 'both', or 'none'
-        unreadCount: 0, // You can fetch real unread count from ChatMessageService if needed
+        unreadCount: 0,
         updatedAt: conv.lastInteractionAt || conv.createdAt
       };
     });
