@@ -160,6 +160,8 @@ export class Astrologer {
   stats: {
     totalEarnings: number;
     totalMinutes: number;
+    callMinutes: number;
+    chatMinutes: number;
     totalOrders: number;
     callOrders: number;
     chatOrders: number;

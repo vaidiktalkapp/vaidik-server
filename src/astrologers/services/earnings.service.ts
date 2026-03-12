@@ -51,9 +51,9 @@ export class EarningsService {
         'earnings.withdrawableAmount': netEarnings, // Available to withdraw
         'stats.totalEarnings': netEarnings, // Legacy field
         'stats.totalOrders': 1,
-        'stats.totalMinutes': minutes || 0,
-        ...(sessionType === 'call' && { 'stats.callOrders': 1, 'stats.callMinutes': minutes || 0 }),
-        ...(sessionType === 'chat' && { 'stats.chatOrders': 1, 'stats.chatMinutes': minutes || 0 }),
+        'stats.totalMinutes': Math.round(minutes || 0),
+        ...(sessionType === 'call' && { 'stats.callOrders': 1, 'stats.callMinutes': Math.round(minutes || 0) }),
+        ...(sessionType === 'chat' && { 'stats.chatOrders': 1, 'stats.chatMinutes': Math.round(minutes || 0) }),
       },
       $set: {
         'earnings.lastUpdated': new Date(),
