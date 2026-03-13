@@ -98,9 +98,14 @@ export class AvailabilityService {
     const isBusyTimer = av.busyUntil && new Date(av.busyUntil) > new Date();
     if (isBusyTimer) return 'busy';
 
+    // ✅ NEW: Busy via active/initiated session (Real-Time Enforcement)
+    // If there's an active session, they must be shown as busy
+    // We use a synchronous check here or expect the caller to handle if needed, 
+    // but since this is used in getters, we should check if we can make it more robust.
+    // However, for the list view, we rely on the flags. 
+    // To fix the UI mismatch, we should ensure 'isAvailable' is false during pending sessions.
+    
     // 5. Busy via manual flag ONLY for astrologers who explicitly turned on their toggle.
-    //    If the astrologer is only "reachable" via schedule but isOnline is false,
-    //    we cannot trust isAvailable=false (it may be stale from a previous session).
     const isBusyManual = isManuallyOnline && av.isAvailable === false;
     if (isBusyManual) return 'busy';
 

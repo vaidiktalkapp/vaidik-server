@@ -159,6 +159,9 @@ export class CallSessionService {
 
     this.setRequestTimeout(sessionId, order.orderId, sessionData.userId);
 
+    // ✅ MARK BUSY IMMEDIATELY: Show as busy in list while request is pending
+    await this.availabilityService.setBusy(sessionData.astrologerId, new Date(Date.now() + 3 * 60 * 1000));
+
     const astroNotifType = sessionData.callType === 'video' ? 'call_request_video' : 'call_request_audio';
 
     const user = await this.userModel.findById(sessionData.userId).select('name profileImage').lean();
@@ -291,8 +294,8 @@ export class CallSessionService {
 
     // ✅ FIX: Be specific about state. If cancelled, return 'already cancelled' logic instead of erroring 
     if (session.status === 'cancelled' || session.status === 'rejected') {
-      // Return success so controller doesn't throw 400
-      return { success: true, message: 'Call already cancelled' };
+      // ✅ SUCCESS: No penalty if already cancelled/rejected
+      return { success: true, message: 'Call already cancelled or rejected' };
     }
 
     if (session.status !== 'initiated' && session.status !== 'waiting') {

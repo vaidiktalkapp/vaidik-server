@@ -159,6 +159,9 @@ export class ChatSessionService {
     // Set 3-min timeout
     this.setRequestTimeout(sessionId, order.orderId, sessionData.userId);
 
+    // ✅ MARK BUSY IMMEDIATELY: Show as busy in list while request is pending
+    await this.availabilityService.setBusy(sessionData.astrologerId, new Date(Date.now() + 3 * 60 * 1000));
+
     // ✅ Fire-and-forget notification to astrologer
     // ✅ Notify astrologer (incoming chat request) – type MUST be "chat_request"
     this.notificationService.sendNotification({
@@ -285,6 +288,11 @@ export class ChatSessionService {
     const session = await this.sessionModel.findOne({ sessionId });
     if (!session) {
       throw new NotFoundException('Session not found');
+    }
+
+    if (session.status === 'cancelled' || session.status === 'rejected') {
+      // ✅ SUCCESS: No penalty if already cancelled/rejected
+      return { success: true, message: 'Chat already cancelled or rejected' };
     }
 
     if (session.status !== 'initiated' && session.status !== 'waiting') {
